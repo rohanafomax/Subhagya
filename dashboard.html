@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account | Saubhagya</title>
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="site-nav"></div>
+
+    <main>
+        <header class="page-head">
+            <div class="mandala" aria-hidden="true"><svg><use href="#mandala"/></svg></div>
+            <h1><span data-i18n="db_hello">Ayubowan</span>, <em id="hello-name"></em></h1>
+            <p id="plan-line"></p>
+        </header>
+
+        <div class="container">
+            <div id="alerts"></div>
+
+            <div class="stat-grid" id="stats"></div>
+
+            <div class="card mt-3">
+                <div class="tabs" id="tabs">
+                    <button type="button" class="active" data-tab="received"><span data-i18n="tab_received">Interests received</span> <span class="count" id="c-received" hidden></span></button>
+                    <button type="button" data-tab="sent" data-i18n="tab_sent">Interests sent</button>
+                    <button type="button" data-tab="matches" data-i18n="tab_matches">Matches</button>
+                    <button type="button" data-tab="shortlist" data-i18n="tab_shortlist">Shortlist</button>
+                    <button type="button" data-tab="profile" data-i18n="tab_profile">My profile</button>
+                    <button type="button" data-tab="verify" data-i18n="tab_verify">Verification</button>
+                    <button type="button" data-tab="settings" data-i18n="tab_settings">Settings</button>
+                </div>
+                <div id="tab-body"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script type="module" src="assets/js/pages/dashboard.js"></script>
+</body>
+</html>

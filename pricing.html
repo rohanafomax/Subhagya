@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Membership | Saubhagya</title>
+    <meta name="description" content="Free and Premium membership plans for Saubhagya Sri Lankan matrimony.">
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="site-nav"></div>
+
+    <main>
+        <header class="page-head">
+            <div class="mandala" aria-hidden="true"><svg><use href="#mandala"/></svg></div>
+            <h1><span data-i18n="pr_title1">Simple, honest</span> <em data-i18n="pr_title2">membership</em></h1>
+            <p data-i18n="pr_sub">Start free. Upgrade only when you find someone you want to contact.</p>
+        </header>
+
+        <div class="container">
+            <div class="plans" id="plans"></div>
+
+            <div class="card mt-3" id="pay-card" hidden>
+                <h2 data-i18n="pay_title">Pay by bank transfer</h2>
+                <div id="pay-status"></div>
+                <ol style="padding-left:1.2rem;color:var(--text-mid)">
+                    <li data-i18n="pay_1">Choose a package above.</li>
+                    <li data-i18n="pay_2">Transfer the amount to the account below (online banking, ATM or bank counter).</li>
+                    <li data-i18n="pay_3">Upload a photo or screenshot of the receipt. We activate Premium after checking, usually within a few hours.</li>
+                </ol>
+                <div class="facts mt-2" id="bank"></div>
+                <form id="pay-form" class="form-grid mt-2">
+                    <div class="field"><label for="pkg" data-i18n="package">Package</label><select id="pkg" required></select></div>
+                    <div class="field"><label for="ref" data-i18n="pay_ref">Transaction reference (optional)</label><input id="ref" maxlength="60"></div>
+                    <div class="field full"><label for="slip"><span data-i18n="slip">Payment receipt</span> <span class="req">*</span></label><input type="file" id="slip" accept="image/*" required></div>
+                    <div class="full"><button class="btn btn-maroon" type="submit" data-i18n="submit_payment">Submit payment</button></div>
+                </form>
+            </div>
+
+            <div class="card mt-3 center" id="login-card" hidden>
+                <h2 data-i18n="pay_login">Log in to upgrade</h2>
+                <a class="btn btn-gold mt-1" href="login.html?next=pricing.html" data-i18n="nav_login">Log in</a>
+            </div>
+        </div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script type="module" src="assets/js/pages/pricing.js"></script>
+</body>
+</html>

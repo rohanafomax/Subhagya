@@ -1,0 +1,238 @@
+import {
+    doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { sendEmailVerification, deleteUser } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+import {
+    db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, fmtDate, toDate, refCode,
+    friendlyError, applyI18n, modal, setLang, getLang, logout
+} from '../app.js';
+import { compressImage } from '../image.js';
+
+const me = await requireAuth();
+const uid = me.user.uid;
+const premium = isPremium(me.account);
+
+let profile = null, received = [], sent = [], verification = null;
+const people = new Map();   // uid → profile (or null if not visible)
+
+$('#hello-name').textContent = me.user.displayName || me.user.email;
+$('#plan-line').innerHTML = premium
+    ? `<span class="badge badge-premium">★ ${esc(t('premium', 'Premium'))}</span> ${esc(t('until', 'until'))} ${fmtDate(me.account.premiumUntil)}`
+    : `${esc(t('free_plan', 'Free membership'))} · <a href="pricing.html" style="color:var(--gold-light)">${esc(t('upgrade', 'Upgrade to Premium'))}</a>`;
+
+async function loadPerson(id) {
+    if (people.has(id)) return people.get(id);
+    let p = null;
+    try { const s = await getDoc(doc(db, 'profiles', id)); p = s.exists() ? s.data() : null; } catch {}
+    people.set(id, p);
+    return p;
+}
+async function photoOf(id) {
+    try { const s = await getDoc(doc(db, 'photos', `${id}_0`)); return s.exists() ? s.data().data : null; } catch { return null; }
+}
+
+async function load() {
+    const [p, r, s, v] = await Promise.all([
+        getDoc(doc(db, 'profiles', uid)),
+        getDocs(query(collection(db, 'interests'), where('to', '==', uid))),
+        getDocs(query(collection(db, 'interests'), where('from', '==', uid))),
+        getDoc(doc(db, 'verifications', uid))
+    ]);
+    profile = p.exists() ? p.data() : null;
+    const sortNew = (a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0);
+    received = r.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortNew);
+    sent = s.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortNew);
+    verification = v.exists() ? v.data() : null;
+}
+
+function renderAlerts() {
+    const a = [];
+    const params = new URLSearchParams(location.search);
+    if (params.get('saved')) a.push(`<div class="alert alert-ok">${esc(t('saved_review', 'Thank you! Your profile was submitted. Our team reviews new profiles, usually within 24 hours.'))}</div>`);
+    if (!me.user.emailVerified) {
+        a.push(`<div class="alert alert-info">${esc(t('verify_email', 'Please verify your email address. We sent a link to'))} <b>${esc(me.user.email)}</b>.
+            <div class="row mt-1"><button class="btn btn-sm btn-maroon" id="resend">${esc(t('resend', 'Resend email'))}</button>
+            <button class="btn btn-sm btn-ghost" id="recheck">${esc(t('verified_done', "I've verified — continue"))}</button></div></div>`);
+    } else if (!profile) {
+        a.push(`<div class="alert alert-info">${esc(t('no_profile', 'You have not created your marriage proposal yet.'))} <a class="btn btn-sm btn-maroon" href="my-profile.html" style="margin-left:.5rem">${esc(t('create_profile', 'Create profile'))}</a></div>`);
+    } else if (profile.status === 'pending') {
+        a.push(`<div class="alert alert-info">${esc(t('pending_note', 'Your profile is waiting for review. It will appear in search once approved.'))}</div>`);
+    } else if (profile.status === 'rejected') {
+        a.push(`<div class="alert alert-err">${esc(t('rejected_note', 'Your profile needs changes before it can be shown.'))} ${profile.rejectReason ? '<b>' + esc(profile.rejectReason) + '</b>' : ''} <a href="my-profile.html">${esc(t('edit_profile', 'Edit profile'))}</a></div>`);
+    }
+    $('#alerts').innerHTML = a.join('');
+    $('#resend')?.addEventListener('click', async () => {
+        try { await sendEmailVerification(me.user); toast(t('sent', 'Email sent. Check your inbox and spam folder.')); }
+        catch (e) { toast(friendlyError(e), true); }
+    });
+    $('#recheck')?.addEventListener('click', async () => {
+        await me.user.reload();
+        if (me.user.emailVerified) { await me.user.getIdToken(true); location.reload(); }
+        else toast(t('not_yet', 'Not verified yet. Please click the link in the email.'), true);
+    });
+}
+
+function renderStats() {
+    const pending = received.filter(i => i.status === 'pending').length;
+    const matches = [...received, ...sent].filter(i => i.status === 'accepted').length;
+    const st = profile ? profile.status : 'none';
+    $('#stats').innerHTML = `
+        <div class="stat"><b><span class="badge badge-${esc(st)}">${esc(t('status_' + st, { none: 'Not created', pending: 'In review', approved: 'Live', rejected: 'Needs changes', hidden: 'Hidden' }[st]))}</span></b><span>${esc(t('profile_status', 'Profile status'))}</span></div>
+        <div class="stat"><b>${pending}</b><span>${esc(t('new_interests', 'New interests'))}</span></div>
+        <div class="stat"><b>${matches}</b><span>${esc(t('tab_matches', 'Matches'))}</span></div>
+        <div class="stat"><b>${profile?.verified ? '✓' : '—'}</b><span>${esc(t('id_verified', 'ID verified'))}</span></div>`;
+    const c = $('#c-received');
+    c.hidden = !pending; c.textContent = pending;
+}
+
+async function personRow(otherId, extra) {
+    const p = await loadPerson(otherId);
+    const img = p && (await photoOf(otherId));
+    const name = p ? esc(p.firstName) : esc(t('profile_unavailable', 'Profile not available'));
+    const meta = p ? [ageFrom(p.dob) + ' ' + t('yrs', 'yrs'), label('religion', p.religion), label('district', p.district), p.profession].filter(Boolean).map(esc).join(' · ') : '';
+    return `<div class="list-row">
+        <div class="avatar">${img ? `<img src="${img}" alt="">` : name.charAt(0)}</div>
+        <div class="info"><strong>${p ? `<a href="profile.html?id=${otherId}">${name}</a>` : name}</strong> <span class="muted">${refCode(otherId)}</span><div class="muted">${meta}</div></div>
+        ${extra}
+    </div>`;
+}
+
+const tabs = {
+    async received() {
+        if (!received.length) return empty(t('none_received', 'No interests yet. A complete profile with good photos gets more interest.'));
+        const rows = await Promise.all(received.map(i => personRow(i.from, i.status === 'pending'
+            ? `<div class="row"><button class="btn btn-sm btn-maroon" data-accept="${i.id}">${esc(t('accept', 'Accept'))}</button><button class="btn btn-sm btn-ghost" data-decline="${i.id}">${esc(t('decline', 'Decline'))}</button></div>`
+            : `<span class="badge badge-${i.status}">${esc(t('st_' + i.status, i.status))}</span>`)));
+        return rows.join('');
+    },
+    async sent() {
+        if (!sent.length) return empty(t('none_sent', 'You have not sent any interests yet.') + ` <a href="browse.html">${esc(t('nav_browse', 'Browse'))}</a>`);
+        const rows = await Promise.all(sent.map(i => personRow(i.to,
+            `<span class="badge badge-${i.status}">${esc(t('st_' + i.status, i.status))}</span>` +
+            (i.status === 'pending' ? ` <button class="btn btn-sm btn-ghost" data-withdraw="${i.id}">${esc(t('withdraw', 'Withdraw'))}</button>` : ''))));
+        return rows.join('');
+    },
+    async matches() {
+        const list = [...received.map(i => ({ ...i, other: i.from })), ...sent.map(i => ({ ...i, other: i.to }))].filter(i => i.status === 'accepted');
+        if (!list.length) return empty(t('none_matches', 'When someone accepts your interest (or you accept theirs) they appear here.'));
+        const note = premium ? '' : `<div class="alert alert-info">${esc(t('match_upgrade', 'Upgrade to Premium to see phone numbers and contact details of your matches.'))} <a href="pricing.html">${esc(t('upgrade', 'Upgrade to Premium'))}</a></div>`;
+        const rows = await Promise.all(list.map(i => personRow(i.other, `<a class="btn btn-sm btn-gold" href="profile.html?id=${i.other}">${esc(premium ? t('view_contact', 'View contact') : t('view', 'View'))}</a>`)));
+        return note + rows.join('');
+    },
+    async shortlist() {
+        const list = me.account.shortlist || [];
+        if (!list.length) return empty(t('none_shortlist', 'Tap “Add to shortlist” on any profile to save it here.'));
+        const rows = await Promise.all(list.map(id => personRow(id, `<a class="btn btn-sm btn-ghost" href="profile.html?id=${id}">${esc(t('view', 'View'))}</a>`)));
+        return rows.join('');
+    },
+    async profile() {
+        if (!profile) return `<div class="empty"><p>${esc(t('no_profile', 'You have not created your marriage proposal yet.'))}</p><a class="btn btn-maroon mt-2" href="my-profile.html">${esc(t('create_profile', 'Create profile'))}</a></div>`;
+        return `${await personRow(uid, `<span class="badge badge-${profile.status}">${esc(t('status_' + profile.status, profile.status))}</span>`)}
+            <div class="row mt-2">
+                <a class="btn btn-maroon" href="my-profile.html">${esc(t('edit_profile', 'Edit profile'))}</a>
+                <a class="btn btn-ghost" href="profile.html?id=${uid}">${esc(t('preview', 'Preview'))}</a>
+                ${profile.status === 'hidden'
+                    ? `<button class="btn btn-ghost" id="unhide">${esc(t('unhide', 'Show my profile again'))}</button>`
+                    : `<button class="btn btn-ghost" id="hide">${esc(t('hide', 'Hide my profile'))}</button>`}
+            </div>
+            <p class="muted mt-2">${esc(t('hide_note', 'Hiding removes you from search (e.g. while talking to a match). Showing it again sends it for a quick review.'))}</p>`;
+    },
+    async verify() {
+        if (profile?.verified) return `<div class="alert alert-ok">✓ ${esc(t('verified_ok', 'Your identity is verified. A blue “ID verified” badge appears on your profile.'))}</div>`;
+        if (verification?.status === 'pending') return `<div class="alert alert-info">${esc(t('verify_pending', 'Your documents were received and are being checked. This usually takes 1–2 days.'))}</div>`;
+        const rejected = verification?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('verify_rejected', 'We could not verify the last upload.'))} ${esc(verification.note || '')}</div>` : '';
+        return `${rejected}
+            <p>${esc(t('verify_why', 'Verified profiles get up to 3× more responses. Upload a photo of your NIC (front) and a selfie holding the NIC. We only use these to confirm your identity and delete the images after checking.'))}</p>
+            <div class="form-grid mt-2">
+                <div class="field"><label>${esc(t('nic_front', 'NIC – front side'))}</label><input type="file" accept="image/*" id="nic"></div>
+                <div class="field"><label>${esc(t('selfie', 'Selfie holding your NIC'))}</label><input type="file" accept="image/*" capture="user" id="selfie"></div>
+            </div>
+            <button class="btn btn-maroon mt-2" id="send-verify" ${profile ? '' : 'disabled'}>${esc(t('submit_verify', 'Submit for verification'))}</button>
+            ${profile ? '' : `<p class="muted mt-1">${esc(t('verify_need_profile', 'Create your profile first.'))}</p>`}`;
+    },
+    async settings() {
+        return `
+            <div class="list-row"><div class="info"><strong>${esc(t('language', 'Language'))}</strong><div class="muted">English / සිංහල</div></div>
+                <button class="btn btn-sm btn-ghost" id="lang-toggle">${getLang() === 'si' ? 'English' : 'සිංහල'}</button></div>
+            <div class="list-row"><div class="info"><strong>${esc(t('membership', 'Membership'))}</strong><div class="muted">${premium ? esc(t('premium', 'Premium')) + ' · ' + fmtDate(me.account.premiumUntil) : esc(t('free_plan', 'Free membership'))}</div></div>
+                <a class="btn btn-sm btn-gold" href="pricing.html">${esc(premium ? t('extend', 'Extend') : t('upgrade', 'Upgrade to Premium'))}</a></div>
+            <div class="list-row"><div class="info"><strong>${esc(t('nav_logout', 'Log out'))}</strong></div>
+                <button class="btn btn-sm btn-ghost" id="logout-btn">${esc(t('nav_logout', 'Log out'))}</button></div>
+            <div class="list-row"><div class="info"><strong>${esc(t('delete_account', 'Delete my account'))}</strong><div class="muted">${esc(t('delete_note', 'Permanently removes your profile, photos and contact details.'))}</div></div>
+                <button class="btn btn-sm btn-danger" id="delete-btn">${esc(t('delete', 'Delete'))}</button></div>`;
+    }
+};
+
+function empty(html) { return `<div class="empty"><p>${html}</p></div>`; }
+
+let current = 'received';
+async function show(tab) {
+    current = tab;
+    $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $('#tab-body').innerHTML = '<div class="spinner"></div>';
+    $('#tab-body').innerHTML = await tabs[tab]();
+    applyI18n($('#tab-body'));
+}
+$$('#tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+
+async function refresh() { await load(); renderAlerts(); renderStats(); await show(current); }
+
+$('#tab-body').addEventListener('click', async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    try {
+        if (b.dataset.accept || b.dataset.decline) {
+            b.disabled = true;
+            await updateDoc(doc(db, 'interests', b.dataset.accept || b.dataset.decline), {
+                status: b.dataset.accept ? 'accepted' : 'declined', respondedAt: serverTimestamp()
+            });
+            toast(b.dataset.accept ? t('accepted_msg', 'Accepted! You can now see each other’s photos.') : t('declined_msg', 'Declined.'));
+            await refresh();
+        } else if (b.dataset.withdraw) {
+            await deleteDoc(doc(db, 'interests', b.dataset.withdraw));
+            await refresh();
+        } else if (b.id === 'hide' || b.id === 'unhide') {
+            await updateDoc(doc(db, 'profiles', uid), { status: b.id === 'hide' ? 'hidden' : 'pending', updatedAt: serverTimestamp() });
+            await refresh();
+        } else if (b.id === 'send-verify') {
+            const nic = $('#nic').files[0], selfie = $('#selfie').files[0];
+            if (!nic || !selfie) { toast(t('both_images', 'Please choose both images.'), true); return; }
+            b.disabled = true;
+            const [a, s] = await Promise.all([compressImage(nic, { maxSide: 1100, maxBytes: 300_000 }), compressImage(selfie, { maxSide: 900, maxBytes: 250_000 })]);
+            await setDoc(doc(db, 'verifications', uid), { uid, nic: a, selfie: s, status: 'pending', createdAt: serverTimestamp() });
+            toast(t('verify_sent', 'Submitted. We will check it soon.'));
+            await refresh();
+        } else if (b.id === 'lang-toggle') {
+            setLang(getLang() === 'si' ? 'en' : 'si');
+        } else if (b.id === 'logout-btn') {
+            logout();
+        } else if (b.id === 'delete-btn') {
+            confirmDelete();
+        }
+    } catch (err) { toast(friendlyError(err), true); b.disabled = false; }
+});
+
+function confirmDelete() {
+    const m = modal(`<h3>${esc(t('delete_account', 'Delete my account'))}</h3>
+        <p>${esc(t('delete_confirm', 'This permanently deletes your profile, photos, contact details and interests. This cannot be undone. Type DELETE to confirm.'))}</p>
+        <div class="field mt-2"><input id="del-confirm" autocomplete="off"></div>
+        <div class="row mt-2"><button class="btn btn-ghost" data-close>${esc(t('cancel', 'Cancel'))}</button><span class="spacer"></span><button class="btn btn-danger" id="del-go">${esc(t('delete', 'Delete'))}</button></div>`);
+    m.querySelector('#del-go').addEventListener('click', async () => {
+        if (m.querySelector('#del-confirm').value.trim().toUpperCase() !== 'DELETE') return;
+        try {
+            for (let i = 0; i < 3; i++) await deleteDoc(doc(db, 'photos', `${uid}_${i}`)).catch(() => {});
+            for (const i of [...received, ...sent]) await deleteDoc(doc(db, 'interests', i.id)).catch(() => {});
+            await deleteDoc(doc(db, 'verifications', uid)).catch(() => {});
+            await deleteDoc(doc(db, 'contacts', uid)).catch(() => {});
+            await deleteDoc(doc(db, 'profiles', uid)).catch(() => {});
+            await deleteDoc(doc(db, 'users', uid)).catch(() => {});
+            await deleteUser(me.user);
+            location.href = 'index.html';
+        } catch (err) {
+            if (err.code === 'auth/requires-recent-login') toast(t('relogin', 'For security, please log out, log in again, then delete.'), true);
+            else toast(friendlyError(err), true);
+        }
+    });
+}
+
+try { await refresh(); } catch (err) { toast(friendlyError(err), true); }

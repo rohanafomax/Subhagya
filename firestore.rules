@@ -1,0 +1,132 @@
+rules_version = '2';
+
+// Saubhagya — Firestore security rules.
+// Paste this whole file into Firebase console → Firestore Database → Rules → Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function path(c, id) { return /databases/$(database)/documents/$(c)/$(id); }
+    function account(uid) { return get(path('users', uid)).data; }
+    function isAdmin() {
+      return signedIn() && exists(path('users', me())) && account(me()).role == 'admin';
+    }
+    function isPremium() {
+      return signedIn() && exists(path('users', me()))
+        && account(me()).plan == 'premium'
+        && account(me()).premiumUntil > request.time;
+    }
+    function emailVerified() { return request.auth.token.email_verified == true; }
+    function acceptedBetween(a, b) {
+      return (exists(path('interests', a + '_' + b)) && get(path('interests', a + '_' + b)).data.status == 'accepted')
+          || (exists(path('interests', b + '_' + a)) && get(path('interests', b + '_' + a)).data.status == 'accepted');
+    }
+    function unchanged(keys) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+    function profileApproved(uid) {
+      return exists(path('profiles', uid)) && get(path('profiles', uid)).data.status == 'approved';
+    }
+
+    // ── Accounts: role and plan can only be changed by an admin ──
+    match /users/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow create: if signedIn() && me() == uid
+        && request.resource.data.role == 'member'
+        && request.resource.data.plan == 'free'
+        && request.resource.data.premiumUntil == null;
+      allow update: if isAdmin()
+        || (signedIn() && me() == uid && changedOnly(['displayName', 'blocked', 'shortlist']));
+      allow delete: if isAdmin() || (signedIn() && me() == uid);
+    }
+
+    // ── Public part of a proposal ──
+    match /profiles/{uid} {
+      allow read: if signedIn() && (resource.data.status == 'approved' || me() == uid || isAdmin());
+      allow create: if signedIn() && me() == uid && emailVerified()
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.verified == false
+        && request.resource.data.premium == false;
+      // Owners can edit, hide, or resubmit — never approve themselves or grant badges.
+      allow update: if isAdmin()
+        || (signedIn() && me() == uid
+            && request.resource.data.status in ['pending', 'hidden']
+            && unchanged(['uid', 'verified', 'premium', 'premiumUntil', 'createdAt']));
+      allow delete: if isAdmin() || (signedIn() && me() == uid);
+    }
+
+    // ── Photos: one per document, id = <uid>_<0..2> ──
+    match /photos/{photoId} {
+      allow get: if signedIn() && (
+        resource.data.uid == me() || isAdmin()
+        || (profileApproved(resource.data.uid)
+            && (resource.data.visibility == 'members' || acceptedBetween(me(), resource.data.uid))));
+      allow create, update: if signedIn()
+        && request.resource.data.uid == me()
+        && photoId in [me() + '_0', me() + '_1', me() + '_2']
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 600000;
+      allow delete: if signedIn() && (photoId in [me() + '_0', me() + '_1', me() + '_2'] || isAdmin());
+    }
+
+    // ── Private contact details: owner, admin, or a Premium member with an accepted match ──
+    match /contacts/{uid} {
+      allow get: if signedIn() && (me() == uid || isAdmin() || (isPremium() && acceptedBetween(me(), uid)));
+      allow create, update: if signedIn() && me() == uid && request.resource.data.uid == uid;
+      allow delete: if signedIn() && (me() == uid || isAdmin());
+    }
+
+    // ── Interests: id = <from>_<to> ──
+    match /interests/{id} {
+      allow get: if signedIn() && (resource == null
+        ? id.split('_')[0] == me() || id.split('_')[1] == me()
+        : resource.data.from == me() || resource.data.to == me() || isAdmin());
+      allow list: if signedIn() && (resource.data.from == me() || resource.data.to == me() || isAdmin());
+      allow create: if signedIn() && emailVerified()
+        && request.resource.data.from == me()
+        && request.resource.data.to != me()
+        && id == me() + '_' + request.resource.data.to
+        && request.resource.data.status == 'pending'
+        && exists(path('profiles', me()))
+        && profileApproved(request.resource.data.to)
+        && !(me() in account(request.resource.data.to).get('blocked', []));
+      allow update: if signedIn() && resource.data.to == me()
+        && changedOnly(['status', 'respondedAt'])
+        && request.resource.data.status in ['accepted', 'declined'];
+      allow delete: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+    }
+
+    // ── Premium payments (bank slip) ──
+    match /payments/{id} {
+      allow read: if signedIn() && (resource.data.uid == me() || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.uid == me()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.slip.size() < 800000;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── NIC + selfie checks ──
+    match /verifications/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow create, update: if isAdmin()
+        || (signedIn() && me() == uid && request.resource.data.status == 'pending' && request.resource.data.uid == uid);
+      allow delete: if signedIn() && (me() == uid || isAdmin());
+    }
+
+    // ── Reports of bad profiles ──
+    match /reports/{id} {
+      allow create: if signedIn()
+        && request.resource.data.by == me()
+        && request.resource.data.status == 'open'
+        && request.resource.data.target != me();
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

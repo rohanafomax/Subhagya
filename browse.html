@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Proposals | Saubhagya</title>
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="site-nav"></div>
+
+    <main>
+        <header class="page-head">
+            <div class="mandala" aria-hidden="true"><svg><use href="#mandala"/></svg></div>
+            <h1><span data-i18n="br_title1">Browse</span> <em data-i18n="br_title2">Proposals</em></h1>
+            <p data-i18n="br_sub">Every profile is reviewed by our team before it appears here</p>
+        </header>
+
+        <div class="container">
+            <form class="card filters" id="filters">
+                <div class="field"><label for="q-gender" data-i18n="f_looking">I'm looking for a</label><select id="q-gender"></select></div>
+                <div class="field"><label for="q-agemin" data-i18n="f_agemin">Age from</label><input id="q-agemin" type="number" min="18" max="80" placeholder="18"></div>
+                <div class="field"><label for="q-agemax" data-i18n="f_agemax">Age to</label><input id="q-agemax" type="number" min="18" max="80" placeholder="60"></div>
+                <div class="field"><label for="q-religion" data-i18n="f_religion">Religion</label><select id="q-religion"></select></div>
+                <div class="field"><label for="q-ethnicity" data-i18n="f_ethnicity">Ethnicity</label><select id="q-ethnicity"></select></div>
+                <div class="field"><label for="q-motherTongue" data-i18n="f_motherTongue">Mother tongue</label><select id="q-motherTongue"></select></div>
+                <div class="field"><label for="q-district" data-i18n="f_district">District</label><select id="q-district"></select></div>
+                <div class="field"><label for="q-residence" data-i18n="f_residence">Living in</label><select id="q-residence"></select></div>
+                <div class="field"><label for="q-marital" data-i18n="f_marital">Marital status</label><select id="q-marital"></select></div>
+                <div class="field"><label for="q-education" data-i18n="f_mineducation">Minimum education</label><select id="q-education"></select></div>
+                <div class="field"><label for="q-sort" data-i18n="sort_by">Sort by</label><select id="q-sort"><option value="best" data-i18n="sort_best">Best preference match</option><option value="new" data-i18n="sort_new">Recently joined</option><option value="verified" data-i18n="sort_verified">Verified first</option></select></div>
+                <div class="field"><label class="check"><input type="checkbox" id="q-verified"><span data-i18n="only_verified">ID-verified only</span></label><label class="check" style="margin-bottom:.7rem"><input type="checkbox" id="q-shortlist"><span data-i18n="only_shortlist">My shortlist only</span></label></div>
+                <div class="field"><button class="btn btn-gold btn-block" type="submit" data-i18n="search">Search</button></div>
+            </form>
+
+            <div class="mt-3" id="results"></div>
+        </div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script type="module" src="assets/js/pages/browse.js"></script>
+</body>
+</html>
