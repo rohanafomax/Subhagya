@@ -3,6 +3,12 @@ import {
     sendPasswordResetEmail, updateProfile, GoogleAuthProvider, signInWithPopup
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { auth, configured, whenReady, t, $, $$, esc, friendlyError, applyI18n } from '../app.js';
+import { GOOGLE_SIGNIN } from '../config.js';
+
+if (!GOOGLE_SIGNIN) {
+    $('#google-btn').hidden = true;
+    $('.divider').hidden = true;
+}
 
 const params = new URLSearchParams(location.search);
 const next = params.get('next') && !params.get('next').includes('//') ? params.get('next') : 'dashboard.html';

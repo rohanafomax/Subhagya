@@ -14,6 +14,10 @@ export const firebaseConfig = {
     appId: "1:799244401099:web:ff932d37c6beff729d5e4e"
 };
 
+// Show "Continue with Google" on the login page. Set to true once Google is
+// enabled in Firebase → Authentication → Sign-in method.
+export const GOOGLE_SIGNIN = false;
+
 // 2. Premium packages (prices in LKR). Change freely.
 export const PLANS = [
     { id: 'p3',  months: 3,  price: 2500 },
