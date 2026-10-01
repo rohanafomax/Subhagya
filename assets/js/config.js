@@ -6,12 +6,12 @@
 //    Firebase console → Project settings → Your apps → Web app.
 //    These values are public by design; security comes from firestore.rules.
 export const firebaseConfig = {
-    apiKey: "PASTE_API_KEY",
-    authDomain: "PASTE_PROJECT.firebaseapp.com",
-    projectId: "PASTE_PROJECT_ID",
-    storageBucket: "PASTE_PROJECT.appspot.com",
-    messagingSenderId: "PASTE_SENDER_ID",
-    appId: "PASTE_APP_ID"
+    apiKey: "AIzaSyAZ7Yb_pKie4uOo5Yu78fj0A0BirniRZbQ",
+    authDomain: "soubhagya-d4d68.firebaseapp.com",
+    projectId: "soubhagya-d4d68",
+    storageBucket: "soubhagya-d4d68.firebasestorage.app",
+    messagingSenderId: "799244401099",
+    appId: "1:799244401099:web:ff932d37c6beff729d5e4e"
 };
 
 // 2. Premium packages (prices in LKR). Change freely.
