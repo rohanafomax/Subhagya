@@ -2,6 +2,7 @@ import {
     doc, getDoc, getDocs, updateDoc, collection, query, where, serverTimestamp, deleteField, Timestamp, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
+import { contactInfoIn, PUBLIC_TEXT_FIELDS } from '../checks.js';
 
 await requireAuth({ admin: true });
 
@@ -45,6 +46,50 @@ async function load() {
     } catch {}
 }
 
+// ───────── automatic warning flags ─────────
+async function others(coll, field, value, uid) {
+    if (!value) return [];
+    try {
+        const snap = await getDocs(query(collection(db, coll), where(field, '==', value)));
+        return [...new Set(snap.docs.map(d => d.data().uid).filter(x => x && x !== uid))];
+    } catch { return []; }
+}
+
+/** Returns [{level: 'red'|'amber', text}] for one profile. */
+async function flagsFor(p, c, photoDocs) {
+    const flags = [];
+    const add = (level, text) => flags.push({ level, text });
+
+    for (const f of PUBLIC_TEXT_FIELDS) {
+        const { strict, soft } = contactInfoIn(p[f]);
+        for (const h of strict) add('red', `${h.kind} in “${f}”: ${h.sample}`);
+        for (const h of soft) add('amber', `mentions ${h.sample} in “${f}”`);
+    }
+    if (!photoDocs.length) add('red', 'No photo');
+
+    const [reports, samePhone, samePhotos] = await Promise.all([
+        getDocs(query(collection(db, 'reports'), where('target', '==', p.uid))).then(s => s.docs.map(d => d.data())).catch(() => []),
+        others('contacts', 'phoneKey', c?.phoneKey, p.uid),
+        Promise.all(photoDocs.filter(ph => ph.hash).map(ph => others('photos', 'hash', ph.hash, p.uid))).then(a => [...new Set(a.flat())])
+    ]);
+    if (reports.length) add('red', `Reported ${reports.length}× before (${[...new Set(reports.map(r => label('reason', r.reason)))].join(', ')})`);
+    if (samePhone.length) add('red', `Same phone number as ${samePhone.map(refCode).join(', ')} — possible duplicate or fake account`);
+    if (samePhotos.length) add('red', `Same photo used by ${samePhotos.map(refCode).join(', ')} — possible stolen photo`);
+    if (p.rejectReason) add('amber', `Sent back before: ${p.rejectReason}`);
+    if (String(p.about || '').length < 120) add('amber', 'Very short “About me”');
+    const letters = String(p.about || '').replace(/[^a-z]/gi, '');
+    if (letters.length > 40 && letters === letters.toUpperCase()) add('amber', '“About me” is all capitals');
+    const age = ageFrom(p.dob);
+    if (age > 70) add('amber', `Age ${age} — check the date of birth`);
+    return flags;
+}
+
+function flagsHtml(flags) {
+    if (!flags.length) return '<div class="alert alert-ok" style="margin:.6rem 0">✓ No automatic warnings</div>';
+    return `<div style="margin:.6rem 0;display:flex;flex-direction:column;gap:.35rem">${flags.map(f =>
+        `<div class="alert ${f.level === 'red' ? 'alert-err' : 'alert-info'}" style="margin:0;padding:.45rem .8rem">${f.level === 'red' ? '⚠' : '•'} ${esc(f.text)}</div>`).join('')}</div>`;
+}
+
 function profileFacts(p, c) {
     return `
         <h3>${esc(p.firstName)} ${esc(c?.lastName || '')}, ${ageFrom(p.dob)} <span class="muted">${refCode(p.uid)}</span>
@@ -64,17 +109,25 @@ function profileFacts(p, c) {
 const tabs = {
     async profiles() {
         if (!data.profiles.length) return '<div class="empty"><p>No profiles waiting. 🎉</p></div>';
-        const rows = await Promise.all(data.profiles.map(async p => {
-            const [pics, c] = await Promise.all([photosOf(p.uid, p.photoCount || 0), get(['contacts', p.uid])]);
+        const items = await Promise.all(data.profiles.map(async p => {
+            const [photoDocs, c] = await Promise.all([
+                Promise.all(Array.from({ length: p.photoCount || 0 }, (_, i) => get(['photos', `${p.uid}_${i}`]))).then(a => a.filter(Boolean)),
+                get(['contacts', p.uid])
+            ]);
+            const flags = await flagsFor(p, c, photoDocs);
+            return { p, c, photoDocs, flags, red: flags.filter(f => f.level === 'red').length };
+        }));
+        items.sort((a, b) => b.red - a.red);        // most suspicious first
+        const rows = items.map(({ p, c, photoDocs, flags }) => {
             return `<div class="review">
-                <div class="pics">${pics.map(img).join('') || '<div class="muted">No photos</div>'}</div>
-                <div>${profileFacts(p, c)}
+                <div class="pics">${photoDocs.map(ph => img(ph.data)).join('') || '<div class="muted">No photos</div>'}</div>
+                <div>${profileFacts(p, c)}${flagsHtml(flags)}
                     <div class="row mt-2">
                         <button class="btn btn-sm btn-maroon" data-approve="${p.uid}">Approve</button>
                         <button class="btn btn-sm btn-danger" data-reject="${p.uid}">Needs changes…</button>
                     </div>
                 </div></div>`;
-        }));
+        });
         return `<p class="muted">Check: real photos of one person, age 18+, sensible details, no phone numbers or links inside the text.</p>` + rows.join('');
     },
     async payments() {

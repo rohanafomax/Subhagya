@@ -6,7 +6,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
     db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, fmtDate, toDate, refCode,
-    friendlyError, applyI18n, modal, setLang, getLang, logout
+    friendlyError, applyI18n, modal, setLang, getLang, logout, markMatchesSeen, updateBadges
 } from '../app.js';
 import { compressImage } from '../image.js';
 
@@ -180,11 +180,12 @@ async function show(tab) {
     $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     $('#tab-body').innerHTML = '<div class="spinner"></div>';
     $('#tab-body').innerHTML = await tabs[tab]();
+    if (tab === 'matches') markMatchesSeen();
     applyI18n($('#tab-body'));
 }
 $$('#tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
 
-async function refresh() { await load(); renderAlerts(); renderStats(); await show(current); }
+async function refresh() { await load(); renderAlerts(); renderStats(); await show(current); updateBadges().catch(() => {}); }
 
 $('#tab-body').addEventListener('click', async e => {
     const b = e.target.closest('button');

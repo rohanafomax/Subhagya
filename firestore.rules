@@ -63,6 +63,8 @@ service cloud.firestore {
 
     // ── Photos: one per document, id = <uid>_<0..2> ──
     match /photos/{photoId} {
+      // admins may search photos (duplicate-photo check)
+      allow list: if isAdmin();
       allow get: if signedIn() && (
         resource.data.uid == me() || isAdmin()
         || (profileApproved(resource.data.uid)
@@ -78,6 +80,8 @@ service cloud.firestore {
     // ── Private contact details: owner, admin, or a Premium member with an accepted match ──
     match /contacts/{uid} {
       allow get: if signedIn() && (me() == uid || isAdmin() || (isPremium() && acceptedBetween(me(), uid)));
+      // admins may search contacts (duplicate phone check)
+      allow list: if isAdmin();
       allow create, update: if signedIn() && me() == uid && request.resource.data.uid == uid;
       allow delete: if signedIn() && (me() == uid || isAdmin());
     }

@@ -3,6 +3,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, t, $, $$, esc, toast, fillSelect, friendlyError, applyI18n, ageFrom } from '../app.js';
 import { compressImage } from '../image.js';
+import { contactInfoIn, PUBLIC_TEXT_FIELDS, phoneKey, sha256 } from '../checks.js';
 
 const MAX_PHOTOS = 3;
 
@@ -178,6 +179,15 @@ function validate() {
         if (f.minLen && String(v).length < f.minLen) return `${name}: ${t('min_chars', 'at least')} ${f.minLen} ${t('chars', 'characters')}`;
         if (f.type === 'number' && v !== '' && ((f.min && v < f.min) || (f.max && v > f.max))) return `${name}: ${f.min}–${f.max}`;
     }
+    // No phone numbers, emails or links in public text — contact details are shared only after both sides accept.
+    for (const f of s.fields) {
+        if (!PUBLIC_TEXT_FIELDS.includes(f.id)) continue;
+        const hit = contactInfoIn(state[f.id]).strict[0];
+        if (hit) {
+            return `${t('f_' + f.id, f.en)}: ${t('err_contact_in_text', 'please remove the')} ${hit.kind} (“${hit.sample}”). ` +
+                t('err_contact_why', 'Contact details are shared safely after both sides accept an interest.');
+        }
+    }
     if (step === 0) {
         const age = ageFrom(state.dob);
         if (age == null || age < 18) return t('err_age', 'The bride/groom must be at least 18 years old.');
@@ -216,10 +226,10 @@ async function save() {
     // photos first, so a visible profile never points at missing photos
     for (let i = 0; i < MAX_PHOTOS; i++) {
         const ref = doc(db, 'photos', `${uid}_${i}`);
-        if (photos[i]) await setDoc(ref, { uid, index: i, data: photos[i], visibility: state.photoVisibility });
+        if (photos[i]) await setDoc(ref, { uid, index: i, data: photos[i], hash: await sha256(photos[i]), visibility: state.photoVisibility });
         else await deleteDoc(ref).catch(() => {});
     }
-    await setDoc(doc(db, 'contacts', uid), { ...priv, uid, updatedAt: serverTimestamp() });
+    await setDoc(doc(db, 'contacts', uid), { ...priv, uid, phoneKey: phoneKey(priv.phone), updatedAt: serverTimestamp() });
     await setDoc(doc(db, 'profiles', uid), profile);
 }
 

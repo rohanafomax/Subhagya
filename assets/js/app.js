@@ -6,7 +6,7 @@ import {
     getAuth, onAuthStateChanged, signOut
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
-    getFirestore, doc, getDoc, setDoc, serverTimestamp
+    getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { firebaseConfig, SITE_CONTACT } from './config.js';
 import { SI } from './i18n.js';
@@ -155,6 +155,7 @@ if (configured) {
         }
         renderNavAuth();
         _resolve(_me);
+        if (_me) updateBadges().catch(e => console.warn('badges', e));
     });
 } else {
     _resolve(null);
@@ -273,6 +274,51 @@ function renderNavAuth() {
     $$('[data-auth="in"]').forEach(el => (el.hidden = !signedIn));
     $$('[data-auth="out"]').forEach(el => (el.hidden = signedIn));
     $$('[data-auth="admin"]').forEach(el => (el.hidden = !admin));
+}
+
+// ───────── alert badges ─────────
+/** When the member last opened the Matches tab (stored on this device). */
+export function markMatchesSeen() {
+    try { localStorage.setItem('matchesSeen_' + _me.user.uid, String(Date.now())); } catch {}
+    updateBadges().catch(() => {});
+}
+
+/** Counts new interests/matches (and admin to-dos) and shows them on the menu. */
+export async function updateBadges() {
+    if (!_me) return;
+    const uid = _me.user.uid;
+    const count = async q => (await getCountFromServer(q)).data().count;
+    const interests = collection(db, 'interests');
+
+    let seen = 0;
+    try { seen = Number(localStorage.getItem('matchesSeen_' + uid)) || 0; } catch {}
+    const [newInterests, accepted] = await Promise.all([
+        count(query(interests, where('to', '==', uid), where('status', '==', 'pending'))),
+        getDocs(query(interests, where('from', '==', uid), where('status', '==', 'accepted')))
+    ]);
+    const newMatches = accepted.docs.filter(d => (toDate(d.data().respondedAt)?.getTime() || 0) > seen).length;
+    const mine = newInterests + newMatches;
+
+    let admin = 0;
+    if (_me.account.role === 'admin') {
+        const c = (coll, field, v) => count(query(collection(db, coll), where(field, '==', v)));
+        const n = await Promise.all([c('profiles', 'status', 'pending'), c('payments', 'status', 'pending'),
+            c('verifications', 'status', 'pending'), c('reports', 'status', 'open')]);
+        admin = n.reduce((a, b) => a + b, 0);
+    }
+
+    const setCount = (sel, n, title) => $$(sel).forEach(a => {
+        a.querySelector('.nav-count')?.remove();
+        if (n > 0) a.insertAdjacentHTML('beforeend', `<span class="nav-count" title="${esc(title)}">${n > 99 ? '99+' : n}</span>`);
+    });
+    setCount('a[href="dashboard.html"]', mine, t('badge_mine', 'New interests and matches'));
+    setCount('a[href="admin.html"]', admin, 'Items waiting for review');
+
+    const total = mine + admin;
+    document.getElementById('menu-btn')?.classList.toggle('has-alert', total > 0);
+    document.title = document.title.replace(/^\(\d+\+?\) /, '');
+    if (total) document.title = `(${total > 99 ? '99+' : total}) ${document.title}`;
+    try { total ? navigator.setAppBadge?.(total) : navigator.clearAppBadge?.(); } catch {}
 }
 
 // Reveal-on-scroll for any .reveal element
