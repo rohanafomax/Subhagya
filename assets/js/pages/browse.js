@@ -1,8 +1,8 @@
 import {
     doc, getDoc, getDocs, collection, query, where, limit
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { db, configured, whenReady, me, t, $, esc, label, fillSelect, ageFrom, heightLabel, refCode, toDate, friendlyError, applyI18n } from '../app.js';
-import { EDUCATION, employmentRank } from '../data.js';
+import { db, configured, whenReady, me, t, $, esc, label, fillSelect, ageFrom, heightLabel, refCode, toDate, friendlyError, applyI18n, getLang } from '../app.js';
+import { EDUCATION, employmentRank, employmentShort } from '../data.js';
 import { matchScore } from '../match.js';
 
 const PAGE = 24;
@@ -44,7 +44,7 @@ function card(p) {
             <div class="meta">${[label('religion', p.religion), label('ethnicity', p.ethnicity)].map(esc).join(' · ')}</div>
             <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.residence === 'abroad' ? ' · ' + esc(p.country) : ''}</div>
             <div class="meta">${esc(p.profession)} · ${esc(label('education', p.education))}</div>
-            ${p.employment ? `<div class="meta">${esc(label('employment', p.employment).split(' (')[0])}</div>` : ''}
+            ${p.employment ? `<div class="meta">${esc(employmentShort(p.employment, getLang()))}</div>` : ''}
             <div class="meta">${heightLabel(p.height).split(' (')[0]} · ${esc(label('marital', p.marital))}</div>
             <div class="row" style="margin-top:.5rem;justify-content:space-between">
                 <span class="ref">${refCode(p.uid)}</span>

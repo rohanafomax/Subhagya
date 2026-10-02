@@ -3,9 +3,10 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import {
     db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate,
-    friendlyError, applyI18n, modal, fillSelect
+    friendlyError, applyI18n, modal, fillSelect, getLang
 } from '../app.js';
 import { FREE_INTEREST_LIMIT } from '../config.js';
+import { employmentShort } from '../data.js';
 import { matchScore } from '../match.js';
 import { jobBadgeText } from '../job.js';
 
@@ -105,7 +106,7 @@ async function render() {
                     ${fact('f_school', 'School', p.school)}
                     ${fact('f_profession', 'Profession', p.profession)}
                     ${fact('f_position', 'Job position', p.position)}
-                    ${fact('f_employment', 'Employment type', p.employment && label('employment', p.employment).split(' (')[0])}
+                    ${fact('f_employment', 'Employment type', p.employment && employmentShort(p.employment, getLang()))}
                     ${fact('f_employer', 'Sector', p.employer)}
                     ${fact('f_income', 'Monthly income', p.income)}
                 </dl>

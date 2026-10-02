@@ -194,6 +194,14 @@ function jobSection() {
     const sentTo = pendingWorkEmail();
     return `${rejected}
         <p>${esc(t('job_why', 'A “Job verified” badge shows families your job is genuine, and verified profiles are listed first among similar profiles. Other members only see the badge — never your documents or numbers. Choose one way:'))}</p>
+        <div class="alert alert-info mt-1">
+            <b>${esc(t('job_which', 'Which way suits you?'))}</b>
+            <ul style="margin:.4rem 0 0 1.1rem">
+                <li>${esc(t('job_which1', 'Bank, corporate, IT, executive, manager or university staff → 1. Work email (instant)'))}</li>
+                <li>${esc(t('job_which2', 'Doctors, engineers, lawyers, accountants, nurses, architects → 2. Registration number'))}</li>
+                <li>${esc(t('job_which3', 'Teachers, armed forces & police officers, government officers, business owners → 3. Staff ID, appointment letter or business registration'))}</li>
+            </ul>
+        </div>
 
         <div class="card mt-2" style="box-shadow:none">
             <strong>1. ${esc(t('job_m1', 'Work email — instant'))}</strong>
@@ -214,8 +222,9 @@ function jobSection() {
         </div>
 
         <div class="card mt-2" style="box-shadow:none">
-            <strong>3. ${esc(t('job_m3', 'Staff ID card or business registration'))}</strong>
-            <p class="muted">${esc(t('job_m3_note', 'A photo of your staff ID card, or business registration (BR) if you run a business. Please cover your ID number, address and any salary details first — we only need your name, workplace and job title. The photo is deleted after checking.'))}</p>
+            <strong>3. ${esc(t('job_m3', 'Staff ID, appointment letter or business registration'))}</strong>
+            <p class="muted">${esc(t('job_m3_note', 'A photo of your staff ID card or the first page of your appointment letter — or business registration (BR) if you run a business. Please cover your ID number, address and any salary details first — we only need your name, workplace and job title / rank. The photo is deleted after checking.'))}</p>
+            <p class="muted">${esc(t('job_m3_forces', 'Armed forces and police: show only your name, rank and service branch. Cover your service number and unit details.'))}</p>
             <div class="field"><input type="file" accept="image/*" id="job-doc"></div>
             <button class="btn btn-maroon mt-1" id="send-job-doc">${esc(t('submit', 'Submit'))}</button>
         </div>`;

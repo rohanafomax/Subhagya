@@ -61,15 +61,26 @@ export const EDUCATION = [
 // Search ranks profiles by `rank`: lower numbers appear first.
 // Business owners and self-employed are listed after salaried professionals; not working is last.
 export const EMPLOYMENT = [
-    { ...opt('professional', 'Professional (doctor, engineer, accountant, lawyer, IT…)', 'වෘත්තිකයෙක් (වෛද්‍ය, ඉංජිනේරු, ගණකාධිකාරී, නීතිඥ, IT…)'), rank: 0 },
-    { ...opt('government', 'Government / semi-government', 'රජයේ / අර්ධ රාජ්‍ය'), rank: 0 },
-    { ...opt('private', 'Private sector employee', 'පෞද්ගලික අංශයේ සේවකයෙක්'), rank: 0 },
-    { ...opt('forces', 'Armed forces / police', 'ත්‍රිවිධ හමුදා / පොලිස්'), rank: 0 },
+    // professionals — all listed first
+    { ...opt('professional', 'Doctor, engineer, accountant, lawyer, architect, IT…', 'වෛද්‍ය, ඉංජිනේරු, ගණකාධිකාරී, නීතිඥ, ගෘහ නිර්මාණ ශිල්පී, IT…'), rank: 0 },
+    { ...opt('teacher', 'Teacher / lecturer', 'ගුරු / කථිකාචාර්ය'), rank: 0 },
+    { ...opt('nurse', 'Nurse / healthcare professional', 'හෙද / සෞඛ්‍ය වෘත්තිකයෙක්'), rank: 0 },
+    { ...opt('forces', 'Armed forces / police officer', 'ත්‍රිවිධ හමුදා / පොලිස් නිලධාරී'), rank: 0 },
+    { ...opt('banking', 'Banking / finance', 'බැංකු / මූල්‍ය'), rank: 0 },
+    { ...opt('executive', 'Executive / manager', 'විධායක / කළමනාකරු'), rank: 0 },
+    { ...opt('government', 'Government officer (other)', 'රජයේ නිලධාරී (වෙනත්)'), rank: 0 },
+    { ...opt('private', 'Private sector employee (other)', 'පෞද්ගලික අංශයේ සේවකයෙක් (වෙනත්)'), rank: 0 },
     { ...opt('business', 'Own business', 'ස්වයං ව්‍යාපාර'), rank: 1 },
     { ...opt('self', 'Self-employed', 'ස්වයං රැකියා'), rank: 1 },
     { ...opt('student', 'Student', 'සිසුවෙක්'), rank: 0 },
     { ...opt('notworking', 'Not working', 'රැකියාවක් නැත'), rank: 2 }     // always last
 ];
+/** Short label for cards and profiles, e.g. "Professional", "Teacher / lecturer". */
+export function employmentShort(v, lang = 'en') {
+    if (v === 'professional') return lang === 'si' ? 'වෘත්තිකයෙක්' : 'Professional';
+    const o = EMPLOYMENT.find(e => e.v === v);
+    return o ? (lang === 'si' ? o.si : o.en).replace(/\s*\((other|වෙනත්)\)$/, '') : '';
+}
 /** Search rank for an employment value (0 = shown first). Profiles saved before this field existed count as 0. */
 export function employmentRank(v) {
     return EMPLOYMENT.find(e => e.v === v)?.rank ?? 0;
@@ -85,6 +96,8 @@ export const JOB_BODIES = [
     { v: 'casl', en: 'CA Sri Lanka (chartered accountants)', url: 'https://www.casrilanka.com' },
     { v: 'cima', en: 'CIMA', url: 'https://www.cimaglobal.com' },
     { v: 'acca', en: 'ACCA', url: 'https://www.accaglobal.com' },
+    { v: 'nursing', en: 'Sri Lanka Nursing Council (nurses)', url: '' },
+    { v: 'slia', en: 'Sri Lanka Institute of Architects', url: '' },
     { v: 'other', en: 'Other professional body', url: '' }
 ];
 
