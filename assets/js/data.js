@@ -58,6 +58,23 @@ export const EDUCATION = [
     opt('professional', 'Professional qualification', 'වෘත්තීය සුදුසුකම්')
 ];
 
+// Search ranks profiles by `rank`: lower numbers appear first.
+// Business owners and self-employed are listed after salaried professionals.
+export const EMPLOYMENT = [
+    { ...opt('professional', 'Professional (doctor, engineer, accountant, lawyer, IT…)', 'වෘත්තිකයෙක් (වෛද්‍ය, ඉංජිනේරු, ගණකාධිකාරී, නීතිඥ, IT…)'), rank: 0 },
+    { ...opt('government', 'Government / semi-government', 'රජයේ / අර්ධ රාජ්‍ය'), rank: 0 },
+    { ...opt('private', 'Private sector employee', 'පෞද්ගලික අංශයේ සේවකයෙක්'), rank: 0 },
+    { ...opt('forces', 'Armed forces / police', 'ත්‍රිවිධ හමුදා / පොලිස්'), rank: 0 },
+    { ...opt('business', 'Own business', 'ස්වයං ව්‍යාපාර'), rank: 1 },
+    { ...opt('self', 'Self-employed', 'ස්වයං රැකියා'), rank: 1 },
+    { ...opt('student', 'Student', 'සිසුවෙක්'), rank: 0 },
+    { ...opt('notworking', 'Not working', 'රැකියාවක් නැත'), rank: 0 }
+];
+/** Search rank for an employment value (0 = shown first). Profiles saved before this field existed count as 0. */
+export function employmentRank(v) {
+    return EMPLOYMENT.find(e => e.v === v)?.rank ?? 0;
+}
+
 export const MOTHER_TONGUE = [
     opt('Sinhala', 'Sinhala', 'සිංහල'),
     opt('Tamil', 'Tamil', 'දෙමළ'),
@@ -128,6 +145,6 @@ export const REPORT_REASONS = [
 export const lists = {
     gender: GENDERS, createdFor: CREATED_FOR, district: DISTRICTS, religion: RELIGIONS,
     ethnicity: ETHNICITIES, marital: MARITAL, education: EDUCATION, diet: DIET,
-    smoking: HABITS, drinking: HABITS, nakatha: NAKATH, lagna: LAGNA, gana: GANA, rasi: LAGNA, motherTongue: MOTHER_TONGUE, residence: RESIDENCE,
+    smoking: HABITS, drinking: HABITS, nakatha: NAKATH, lagna: LAGNA, gana: GANA, rasi: LAGNA, motherTongue: MOTHER_TONGUE, residence: RESIDENCE, employment: EMPLOYMENT,
     horoscopeMatch: YES_NO_MATTER, photoVisibility: PHOTO_VISIBILITY, reason: REPORT_REASONS
 };

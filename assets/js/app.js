@@ -243,7 +243,7 @@ function renderChrome() {
             <div class="footer-grid">
                 <div>
                     <div class="footer-logo">Saubhagya</div>
-                    <p data-i18n="foot_about">Sri Lanka's matrimony platform combining traditional matchmaking values with modern technology. Safe, private, and built for families.</p>
+                    <p data-i18n="foot_about">Sri Lanka's matrimony platform for professionals, combining traditional matchmaking values with modern technology. Safe, private, and built for families.</p>
                 </div>
                 <div>
                     <h4 data-i18n="foot_explore">Explore</h4>

@@ -2,7 +2,7 @@ import {
     doc, getDoc, getDocs, collection, query, where, limit
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, configured, whenReady, me, t, $, esc, label, fillSelect, ageFrom, heightLabel, refCode, toDate, friendlyError, applyI18n } from '../app.js';
-import { EDUCATION } from '../data.js';
+import { EDUCATION, employmentRank } from '../data.js';
 import { matchScore } from '../match.js';
 
 const PAGE = 24;
@@ -43,6 +43,7 @@ function card(p) {
             <div class="meta">${[label('religion', p.religion), label('ethnicity', p.ethnicity)].map(esc).join(' · ')}</div>
             <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.residence === 'abroad' ? ' · ' + esc(p.country) : ''}</div>
             <div class="meta">${esc(p.profession)} · ${esc(label('education', p.education))}</div>
+            ${p.employment ? `<div class="meta">${esc(label('employment', p.employment).split(' (')[0])}</div>` : ''}
             <div class="meta">${heightLabel(p.height).split(' (')[0]} · ${esc(label('marital', p.marital))}</div>
             <div class="row" style="margin-top:.5rem;justify-content:space-between">
                 <span class="ref">${refCode(p.uid)}</span>
@@ -111,6 +112,8 @@ async function search() {
         const sort = f('sort');
         all.sort((a, b) => {
             if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);          // Premium always first
+            const er = employmentRank(a.employment) - employmentRank(b.employment);
+            if (er) return er;                                                   // business / self-employed after professionals
             if (sort === 'best' && (a._score ?? -1) !== (b._score ?? -1)) return (b._score ?? -1) - (a._score ?? -1);
             if (sort !== 'new' && a.verified !== b.verified) return b.verified - a.verified;
             return newest(a, b);

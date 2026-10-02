@@ -103,6 +103,7 @@ async function render() {
                     ${fact('f_school', 'School', p.school)}
                     ${fact('f_profession', 'Profession', p.profession)}
                     ${fact('f_position', 'Job position', p.position)}
+                    ${fact('f_employment', 'Employment type', p.employment && label('employment', p.employment).split(' (')[0])}
                     ${fact('f_employer', 'Sector', p.employer)}
                     ${fact('f_income', 'Monthly income', p.income)}
                 </dl>

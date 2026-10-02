@@ -132,7 +132,7 @@ function profileFacts(p, c) {
         ${kv('Religion', label('religion', p.religion))} ${kv('Ethnicity', label('ethnicity', p.ethnicity))}
         ${kv('Location', [p.city, label('district', p.district), p.country].filter(Boolean).join(', '))}
         ${kv('Education', [label('education', p.education), p.educationDetail].filter(Boolean).join(' – '))}
-        ${kv('Profession', p.profession)}
+        ${kv('Profession', p.profession)} ${kv('Employment', p.employment && label('employment', p.employment))}
         ${kv('Contact', c ? `${c.contactName} (${c.contactRelation || '—'}) ${c.phone}` : '')}
         <p class="mt-1" style="white-space:pre-line;font-size:.9rem">${esc(p.about)}</p>`;
 }
