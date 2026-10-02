@@ -70,6 +70,7 @@ export const EMPLOYMENT = [
     { ...opt('executive', 'Executive / manager', 'විධායක / කළමනාකරු'), rank: 0 },
     { ...opt('government', 'Government officer (other)', 'රජයේ නිලධාරී (වෙනත්)'), rank: 0 },
     { ...opt('private', 'Private sector employee (other)', 'පෞද්ගලික අංශයේ සේවකයෙක් (වෙනත්)'), rank: 0 },
+    { ...opt('overseas', 'Overseas employee (other)', 'විදෙස් රැකියා (වෙනත්)'), rank: 0 },
     { ...opt('business', 'Own business', 'ස්වයං ව්‍යාපාර'), rank: 1 },
     { ...opt('self', 'Self-employed', 'ස්වයං රැකියා'), rank: 1 },
     { ...opt('student', 'Student', 'සිසුවෙක්'), rank: 0 },
@@ -98,7 +99,49 @@ export const JOB_BODIES = [
     { v: 'acca', en: 'ACCA', url: 'https://www.accaglobal.com' },
     { v: 'nursing', en: 'Sri Lanka Nursing Council (nurses)', url: '' },
     { v: 'slia', en: 'Sri Lanka Institute of Architects', url: '' },
+    // overseas registers
+    { v: 'gmc', en: 'UK – General Medical Council (doctors)', url: 'https://www.gmc-uk.org' },
+    { v: 'nmc', en: 'UK – Nursing & Midwifery Council (nurses)', url: 'https://www.nmc.org.uk' },
+    { v: 'engc', en: 'UK – Engineering Council', url: 'https://www.engc.org.uk' },
+    { v: 'ahpra', en: 'Australia – AHPRA (doctors, nurses, health)', url: 'https://www.ahpra.gov.au' },
+    { v: 'ea', en: 'Australia – Engineers Australia', url: 'https://www.engineersaustralia.org.au' },
+    { v: 'cpaau', en: 'Australia – CPA Australia', url: 'https://www.cpaaustralia.com.au' },
+    { v: 'mcc', en: 'Canada – Medical Council of Canada', url: 'https://mcc.ca' },
+    { v: 'overseas', en: 'Other overseas professional body', url: '' },
     { v: 'other', en: 'Other professional body', url: '' }
+];
+
+// Countries where Sri Lankans most often live and work. Stored by English name.
+export const COUNTRIES = [
+    'Sri Lanka', 'United Kingdom', 'Australia', 'Canada', 'United States', 'New Zealand',
+    'Italy', 'Germany', 'France', 'Switzerland', 'Netherlands', 'Norway', 'Sweden', 'Denmark', 'Ireland', 'Cyprus',
+    'Japan', 'South Korea', 'Singapore', 'Malaysia', 'Maldives', 'India',
+    'United Arab Emirates', 'Qatar', 'Saudi Arabia', 'Kuwait', 'Oman', 'Bahrain', 'Israel', 'Other'
+].map(c => opt(c, c, c === 'Sri Lanka' ? 'ශ්‍රී ලංකාව' : c === 'Other' ? 'වෙනත්' : c));
+
+/** Country to display for a profile (handles "Other" and older free-text values). */
+export function countryName(p, lang = 'en') {
+    if (!p?.country) return '';
+    if (p.country === 'Other') return p.countryOther || (lang === 'si' ? 'වෙනත්' : 'Other');
+    const o = COUNTRIES.find(c => c.v === p.country);
+    return o ? (lang === 'si' ? o.si : o.en) : p.country;
+}
+
+export const RESIDENCY_STATUS = [
+    opt('citizen', 'Citizen', 'පුරවැසි'),
+    opt('pr', 'Permanent resident (PR)', 'ස්ථිර පදිංචිය (PR)'),
+    opt('work', 'Work visa', 'රැකියා වීසා'),
+    opt('student', 'Student visa', 'ශිෂ්‍ය වීසා'),
+    opt('dependant', 'Dependant / family visa', 'යැපෙන්නන්ගේ / පවුල් වීසා'),
+    opt('other', 'Other', 'වෙනත්')
+];
+
+export const RELOCATE = [
+    opt('either', 'Yes — to Sri Lanka or abroad', 'ඔව් — ලංකාවට හෝ විදෙසට'),
+    opt('abroad', 'Yes — abroad', 'ඔව් — විදෙසට'),
+    opt('lk', 'Yes — to Sri Lanka', 'ඔව් — ලංකාවට'),
+    opt('no', 'No', 'නැත'),
+    opt('discuss', 'Open to discuss', 'සාකච්ඡා කළ හැක')
 ];
 
 export const MOTHER_TONGUE = [
@@ -172,5 +215,6 @@ export const lists = {
     gender: GENDERS, createdFor: CREATED_FOR, district: DISTRICTS, religion: RELIGIONS,
     ethnicity: ETHNICITIES, marital: MARITAL, education: EDUCATION, diet: DIET,
     smoking: HABITS, drinking: HABITS, nakatha: NAKATH, lagna: LAGNA, gana: GANA, rasi: LAGNA, motherTongue: MOTHER_TONGUE, residence: RESIDENCE, employment: EMPLOYMENT,
+    country: COUNTRIES, residencyStatus: RESIDENCY_STATUS, relocate: RELOCATE,
     horoscopeMatch: YES_NO_MATTER, photoVisibility: PHOTO_VISIBILITY, reason: REPORT_REASONS
 };

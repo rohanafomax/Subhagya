@@ -2,7 +2,7 @@ import {
     doc, getDoc, getDocs, collection, query, where, limit
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, configured, whenReady, me, t, $, esc, label, fillSelect, ageFrom, heightLabel, refCode, toDate, friendlyError, applyI18n, getLang } from '../app.js';
-import { EDUCATION, employmentRank, employmentShort } from '../data.js';
+import { EDUCATION, employmentRank, employmentShort, countryName } from '../data.js';
 import { matchScore } from '../match.js';
 
 const PAGE = 24;
@@ -13,7 +13,7 @@ fillSelect($('#q-gender'), 'gender');
 $('#q-gender').options[0].remove();
 for (const [id, list, any] of [
     ['religion', 'religion', 'Any religion'], ['ethnicity', 'ethnicity', 'Any'], ['motherTongue', 'motherTongue', 'Any'],
-    ['district', 'district', 'Any district'], ['residence', 'residence', 'Sri Lanka or overseas'],
+    ['district', 'district', 'Any district'], ['residence', 'residence', 'Sri Lanka or overseas'], ['country', 'country', 'Any country'],
     ['marital', 'marital', 'Any'], ['education', 'education', 'Any']
 ]) fillSelect($('#q-' + id), list, { any: t('any', any) });
 
@@ -42,7 +42,7 @@ function card(p) {
         <div class="p-body">
             <h3>${esc(p.firstName)}, ${age}</h3>
             <div class="meta">${[label('religion', p.religion), label('ethnicity', p.ethnicity)].map(esc).join(' · ')}</div>
-            <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.residence === 'abroad' ? ' · ' + esc(p.country) : ''}</div>
+            <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.residence === 'abroad' ? ' · ' + esc(countryName(p, getLang())) + (p.residencyStatus ? ` (${esc(label('residencyStatus', p.residencyStatus))})` : '') : ''}</div>
             <div class="meta">${esc(p.profession)} · ${esc(label('education', p.education))}</div>
             ${p.employment ? `<div class="meta">${esc(employmentShort(p.employment, getLang()))}</div>` : ''}
             <div class="meta">${heightLabel(p.height).split(' (')[0]} · ${esc(label('marital', p.marital))}</div>
@@ -101,6 +101,8 @@ async function search() {
                 && (!f('motherTongue') || p.motherTongue === f('motherTongue'))
                 && (!f('district') || p.district === f('district'))
                 && (!f('residence') || (p.residence || 'lk') === f('residence'))
+                && (!f('country') || p.country === f('country'))
+                && (!f('relocate') || ['either', 'discuss', f('relocate')].includes(p.relocate))
                 && (!f('marital') || p.marital === f('marital'))
                 && (!f('education') || eduRank(p.education) >= eduRank(f('education')))
                 && (!$('#q-verified').checked || p.verified)

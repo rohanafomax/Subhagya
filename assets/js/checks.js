@@ -37,7 +37,7 @@ export function contactInfoIn(text) {
 
 /** Public profile fields that are free text (and so need checking). */
 export const PUBLIC_TEXT_FIELDS = [
-    'firstName', 'children', 'caste', 'city', 'country', 'educationDetail', 'school', 'profession',
+    'firstName', 'children', 'caste', 'city', 'countryOther', 'educationDetail', 'school', 'profession',
     'position', 'employer', 'fatherOcc', 'motherOcc', 'siblings', 'familyHome', 'about', 'prefProfession', 'prefNotes'
 ];
 
@@ -97,6 +97,7 @@ export function consistencyProblems(p, age) {
     }
     if (p.height && (p.height < 135 || p.height > 210)) out.push(`unusual height ${p.height} cm`);
     if (p.residence === 'abroad' && /^sri\s*lanka$/i.test(String(p.country || '').trim())) out.push('says “overseas” but country is Sri Lanka');
+    if (p.residence === 'abroad' && p.residencyStatus === 'student' && age != null && age > 40) out.push(`student visa at age ${age}`);
     return out;
 }
 

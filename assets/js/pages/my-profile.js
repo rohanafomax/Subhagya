@@ -25,8 +25,9 @@ const STEPS = [
             { id: 'caste', en: 'Caste (optional)', type: 'text' },
             { id: 'district', en: 'District', type: 'select', list: 'district', req: 1 },
             { id: 'city', en: 'Home town / city', type: 'text', req: 1 },
-            { id: 'residence', en: 'Living in', type: 'select', list: 'residence', req: 1, def: 'lk' },
-            { id: 'country', en: 'Country of residence', type: 'text', req: 1, def: 'Sri Lanka' }
+            { id: 'country', en: 'Country you live in now', type: 'select', list: 'country', req: 1, def: 'Sri Lanka' },
+            { id: 'countryOther', en: 'Country name (if “Other”)', type: 'text' },
+            { id: 'residencyStatus', en: 'Residency status (if living overseas)', type: 'select', list: 'residencyStatus', hint: 'Families often ask this — e.g. Permanent resident, Work visa.' }
         ]
     },
     {
@@ -66,6 +67,7 @@ const STEPS = [
     },
     {
         key: 'st_partner', en: 'Partner preferences', fields: [
+            { id: 'relocate', en: 'Willing to relocate after marriage?', type: 'select', list: 'relocate', full: 1 },
             { id: 'prefAgeMin', en: 'Age from', type: 'number', min: 18, max: 80 },
             { id: 'prefAgeMax', en: 'Age to', type: 'number', min: 18, max: 80 },
             { id: 'prefReligion', en: 'Religion', type: 'select', list: 'religion', any: 'Any religion' },
@@ -193,6 +195,10 @@ function validate() {
         const age = ageFrom(state.dob);
         if (age == null || age < 18) return t('err_age', 'The bride/groom must be at least 18 years old.');
         if (age > 90) return t('err_dob', 'Please check the date of birth.');
+        if (state.country === 'Other' && !state.countryOther) return t('err_country_other', 'Please type the name of the country you live in.');
+        if (state.country && state.country !== 'Sri Lanka' && !state.residencyStatus) {
+            return t('err_residency', 'Please choose your residency status in that country.');
+        }
     }
     if (step === 4 && state.prefAgeMin && state.prefAgeMax && state.prefAgeMin > state.prefAgeMax) {
         return t('err_agerange', '“Age from” must be less than “Age to”.');
@@ -211,6 +217,9 @@ async function save() {
         if (f.type === 'photos' || f.type === 'check') continue;
         (f.store === 'c' ? priv : pub)[f.id] = state[f.id] ?? '';
     }
+    // "Sri Lanka or overseas" is worked out from the country, so search and match % stay correct
+    pub.residence = pub.country && pub.country !== 'Sri Lanka' ? 'abroad' : 'lk';
+    if (pub.residence === 'lk') pub.residencyStatus = '';
     const profile = {
         ...pub,
         uid,

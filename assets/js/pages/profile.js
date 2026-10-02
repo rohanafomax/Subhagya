@@ -6,7 +6,7 @@ import {
     friendlyError, applyI18n, modal, fillSelect, getLang
 } from '../app.js';
 import { FREE_INTEREST_LIMIT } from '../config.js';
-import { employmentShort } from '../data.js';
+import { employmentShort, countryName } from '../data.js';
 import { matchScore } from '../match.js';
 import { jobBadgeText } from '../job.js';
 
@@ -94,7 +94,9 @@ async function render() {
                     ${fact('f_caste', 'Caste', p.caste)}
                     ${fact('f_district', 'District', label('district', p.district))}
                     ${fact('f_city', 'Home town', p.city)}
-                    ${fact('f_country', 'Lives in', [p.residence && label('residence', p.residence), p.country].filter(Boolean).join(' – '))}
+                    ${fact('f_country', 'Lives in', countryName(p, getLang()))}
+                    ${fact('f_residencyStatus', 'Residency status', p.residence === 'abroad' && p.residencyStatus && label('residencyStatus', p.residencyStatus))}
+                    ${fact('f_relocate', 'Willing to relocate', p.relocate && label('relocate', p.relocate))}
                 </dl>
             </div>
 
