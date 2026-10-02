@@ -75,12 +75,15 @@ function renderAlerts() {
     });
 }
 
+const STATUS_EN = { none: 'Not created', pending: 'In review', approved: 'Live', rejected: 'Needs changes', hidden: 'Hidden' };
+const statusLabel = st => t('status_' + st, STATUS_EN[st] || st);
+
 function renderStats() {
     const pending = received.filter(i => i.status === 'pending').length;
     const matches = [...received, ...sent].filter(i => i.status === 'accepted').length;
     const st = profile ? profile.status : 'none';
     $('#stats').innerHTML = `
-        <div class="stat"><b><span class="badge badge-${esc(st)}">${esc(t('status_' + st, { none: 'Not created', pending: 'In review', approved: 'Live', rejected: 'Needs changes', hidden: 'Hidden' }[st]))}</span></b><span>${esc(t('profile_status', 'Profile status'))}</span></div>
+        <div class="stat"><b><span class="badge badge-${esc(st)}">${esc(statusLabel(st))}</span></b><span>${esc(t('profile_status', 'Profile status'))}</span></div>
         <div class="stat"><b>${pending}</b><span>${esc(t('new_interests', 'New interests'))}</span></div>
         <div class="stat"><b>${matches}</b><span>${esc(t('tab_matches', 'Matches'))}</span></div>
         <div class="stat"><b>${profile?.verified ? '✓' : '—'}</b><span>${esc(t('id_verified', 'ID verified'))}</span></div>`;
@@ -130,7 +133,7 @@ const tabs = {
     },
     async profile() {
         if (!profile) return `<div class="empty"><p>${esc(t('no_profile', 'You have not created your marriage proposal yet.'))}</p><a class="btn btn-maroon mt-2" href="my-profile.html">${esc(t('create_profile', 'Create profile'))}</a></div>`;
-        return `${await personRow(uid, `<span class="badge badge-${profile.status}">${esc(t('status_' + profile.status, profile.status))}</span>`)}
+        return `${await personRow(uid, `<span class="badge badge-${profile.status}">${esc(statusLabel(profile.status))}</span>`)}
             <div class="row mt-2">
                 <a class="btn btn-maroon" href="my-profile.html">${esc(t('edit_profile', 'Edit profile'))}</a>
                 <a class="btn btn-ghost" href="profile.html?id=${uid}">${esc(t('preview', 'Preview'))}</a>
