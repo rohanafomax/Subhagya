@@ -211,10 +211,11 @@ const tabs = {
         return `<p>Checks every <b>live</b> profile for signs of fake or duplicate accounts: reports, the same phone number, photo,
             “About me” or name + birth date as another account, contact details hidden in text, temporary emails,
             interest spamming and details that don't fit together.</p>
-            <p class="muted">Run it once a week, or whenever you get reports. Each scan uses roughly 10 database reads per profile
-            (the free plan allows 50,000 a day).</p>
-            <button class="btn btn-maroon mt-1" id="run-scan">Run scan</button>
-            <div id="scan-out" class="mt-2"></div>`;
+            <p class="muted">It runs by itself when an admin opens this page and the last scan was more than ${SCAN_EVERY_DAYS} days ago.
+            ${lastScanTime() ? `Last scan on this device: ${fmtDate(new Date(lastScanTime()))}.` : 'Not run yet on this device.'}
+            Each scan uses roughly 10 database reads per profile (the free plan allows 50,000 a day).</p>
+            <button class="btn btn-maroon mt-1" id="run-scan">Run scan now</button>
+            <div id="scan-out" class="mt-2">${lastScan ? scanHtml(lastScan) : ''}</div>`;
     },
     async find() {
         return `<form id="find-form" class="row"><div class="field" style="flex:1"><input id="find-q" placeholder="Reference code (SB-XXXXX) or full user ID"></div><button class="btn btn-maroon">Find</button></form><div id="find-out" class="mt-2"></div>`;
@@ -231,16 +232,25 @@ async function show(tab) {
 $$('#tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
 async function refresh() { await load(); await show(current); }
 
-async function runScan(btn) {
-    const out = $('#scan-out');
-    btn.disabled = true;
-    try {
+// ───────── fake-profile scan (manual, and automatic weekly) ─────────
+const SCAN_EVERY_DAYS = 7;
+let lastScan = null;            // { total, results } from the most recent scan in this visit
+let scanning = null;            // the scan in progress, so two never run at once
+
+function lastScanTime() {
+    try { return Number(localStorage.getItem('adminLastScan')) || 0; } catch { return 0; }
+}
+
+/** Checks every live profile. Calls onProgress(done, total) as it goes. */
+async function scanAll(onProgress = () => {}) {
+    if (scanning) return scanning;
+    scanning = (async () => {
         const snap = await getDocs(query(collection(db, 'profiles'), where('status', '==', 'approved')));
         const profiles = snap.docs.map(d => d.data());
         const results = [];
         let done = 0;
-        // check 5 profiles at a time
         const queue = [...profiles];
+        // check 5 profiles at a time
         await Promise.all(Array.from({ length: 5 }, async () => {
             while (queue.length) {
                 const p = queue.shift();
@@ -250,26 +260,72 @@ async function runScan(btn) {
                 ]);
                 const flags = (await flagsFor(p, c, photoDocs)).filter(f => !/^Very short|^Sent back before/.test(f.text));
                 if (flags.length) results.push({ p, flags, photo: photoDocs[0]?.data, red: flags.filter(f => f.level === 'red').length });
-                out.innerHTML = `<div class="spinner"></div><p class="center muted">Checked ${++done} of ${profiles.length}…</p>`;
+                onProgress(++done, profiles.length);
             }
         }));
         results.sort((a, b) => b.red - a.red || b.flags.length - a.flags.length);
-        const red = results.filter(r => r.red).length;
-        out.innerHTML = `<div class="alert ${red ? 'alert-err' : 'alert-ok'}">Checked ${profiles.length} live profiles:
-                <b>${red}</b> with serious warnings, <b>${results.length - red}</b> worth a look.</div>` +
-            results.map(({ p, flags, photo }) => `<div class="review">
-                <div class="pics">${photo ? img(photo) : '<div class="muted">No photo</div>'}</div>
-                <div><h3>${esc(p.firstName)}, ${ageFrom(p.dob)} <span class="muted">${refCode(p.uid)}</span></h3>
-                    ${kv('Location', label('district', p.district))} ${kv('Profession', p.profession)}
-                    ${flagsHtml(flags)}
-                    <div class="row mt-1">
-                        <a class="btn btn-sm btn-ghost" href="profile.html?id=${p.uid}" target="_blank">Open profile</a>
-                        <button class="btn btn-sm btn-danger" data-reject="${p.uid}">Remove / needs changes…</button>
-                    </div></div></div>`).join('');
+        try { localStorage.setItem('adminLastScan', String(Date.now())); } catch {}
+        lastScan = { total: profiles.length, results };
+        return lastScan;
+    })();
+    try { return await scanning; } finally { scanning = null; }
+}
+
+function scanHtml({ total, results }) {
+    const red = results.filter(r => r.red).length;
+    return `<div class="alert ${red ? 'alert-err' : 'alert-ok'}">Checked ${total} live profiles:
+            <b>${red}</b> with serious warnings, <b>${results.length - red}</b> worth a look.</div>` +
+        results.map(({ p, flags, photo }) => `<div class="review">
+            <div class="pics">${photo ? img(photo) : '<div class="muted">No photo</div>'}</div>
+            <div><h3>${esc(p.firstName)}, ${ageFrom(p.dob)} <span class="muted">${refCode(p.uid)}</span></h3>
+                ${kv('Location', label('district', p.district))} ${kv('Profession', p.profession)}
+                ${flagsHtml(flags)}
+                <div class="row mt-1">
+                    <a class="btn btn-sm btn-ghost" href="profile.html?id=${p.uid}" target="_blank">Open profile</a>
+                    <button class="btn btn-sm btn-danger" data-reject="${p.uid}">Remove / needs changes…</button>
+                </div></div></div>`).join('');
+}
+
+async function runScan(btn) {
+    const out = $('#scan-out');
+    btn.disabled = true;
+    try {
+        await scanAll((done, total) => {
+            out.innerHTML = `<div class="spinner"></div><p class="center muted">Checked ${done} of ${total}…</p>`;
+        });
+        out.innerHTML = scanHtml(lastScan);
+        showScanNotice();
     } catch (err) {
         out.innerHTML = `<div class="alert alert-err">${esc(friendlyError(err))}</div>`;
     }
     btn.disabled = false;
+}
+
+/** Banner at the top of Admin summarising the latest scan. */
+function showScanNotice() {
+    const el = $('#scan-notice');
+    if (!lastScan) { el.innerHTML = ''; return; }
+    const { total, results } = lastScan;
+    const red = results.filter(r => r.red).length;
+    el.innerHTML = results.length
+        ? `<div class="alert ${red ? 'alert-err' : 'alert-info'} row" style="justify-content:space-between">
+            <span>Fake-profile scan found <b>${results.length}</b> profile${results.length > 1 ? 's' : ''} to check${red ? ` (<b>${red}</b> serious)` : ''}.</span>
+            <button class="btn btn-sm btn-maroon" id="view-scan">View</button></div>`
+        : `<div class="alert alert-ok">Fake-profile scan: no problems found in ${total} live profile${total === 1 ? '' : 's'}.</div>`;
+    $('#view-scan')?.addEventListener('click', () => show('scan'));
+}
+
+/** Runs the scan in the background if the last one was more than a week ago. */
+async function autoScan() {
+    if (Date.now() - lastScanTime() < SCAN_EVERY_DAYS * 864e5) return;
+    $('#scan-notice').innerHTML = '<div class="alert alert-info">Running the weekly fake-profile scan in the background…</div>';
+    try {
+        await scanAll();
+        showScanNotice();
+        if (current === 'scan') show('scan');
+    } catch {
+        $('#scan-notice').innerHTML = '';
+    }
 }
 
 function ask(title, placeholder) {
@@ -327,6 +383,10 @@ $('#tab-body').addEventListener('click', async e => {
         } else if (d.dismiss) {
             await updateDoc(doc(db, 'reports', d.dismiss), { status: 'dismissed', reviewedAt: serverTimestamp() });
         } else return;
+        if (lastScan && (d.reject || d.target)) {   // a removed profile no longer needs checking
+            lastScan.results = lastScan.results.filter(r => r.p.uid !== (d.reject || d.target));
+            showScanNotice();
+        }
         if (current === 'scan') {           // keep the scan results on screen
             b.closest('.review')?.remove();
             await load();
@@ -360,3 +420,4 @@ $('#tab-body').addEventListener('submit', async e => {
 });
 
 try { await refresh(); } catch (err) { toast(friendlyError(err), true); }
+autoScan();
