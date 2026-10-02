@@ -117,8 +117,8 @@ async function search() {
         const sort = f('sort');
         all.sort((a, b) => {
             if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);          // Premium always first
-            const er = employmentRank(a.employment) - employmentRank(b.employment);
-            if (er) return er;                                                   // business / self-employed after professionals; not working last
+            const er = employmentRank(a) - employmentRank(b);
+            if (er) return er;            // unverified business / self-employed after professionals; not working last
             if (!!a.jobVerified !== !!b.jobVerified) return !!b.jobVerified - !!a.jobVerified;   // job-verified first within a group
             if (sort === 'best' && (a._score ?? -1) !== (b._score ?? -1)) return (b._score ?? -1) - (a._score ?? -1);
             if (sort !== 'new' && a.verified !== b.verified) return b.verified - a.verified;

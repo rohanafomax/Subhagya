@@ -58,6 +58,7 @@ export async function syncJobBadge(uid, profile) {
 /** Short public text for the badge, e.g. "works at slt.lk" or "SLMC registered". */
 export function jobBadgeText(p, t) {
     if (!p?.jobVerified) return '';
-    if (p.jobVia === 'email' && p.jobWorkplace) return `${t('job_verified', 'Job verified')} · ${p.jobWorkplace}`;
+    if (p.jobWorkplace === 'Registered business') return t('job_business_badge', 'Registered business ✓');
+    if (p.jobWorkplace) return `${t('job_verified', 'Job verified')} · ${p.jobWorkplace}`;
     return t('job_verified', 'Job verified');
 }

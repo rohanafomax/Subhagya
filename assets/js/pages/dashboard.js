@@ -192,7 +192,10 @@ function jobSection() {
     if (jobCheck?.status === 'pending') return `<div class="alert alert-info">${esc(t('job_pending', 'Your job details were received and are being checked, usually within 1–2 days.'))}</div>`;
     const rejected = jobCheck?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('job_rejected', 'We could not verify your job last time.'))} ${esc(jobCheck.note || '')}</div>` : '';
     const sentTo = pendingWorkEmail();
-    return `${rejected}
+    const business = ['business', 'self'].includes(profile.employment)
+        ? `<div class="alert alert-ok">${esc(t('job_business', 'Business owners and self-employed: verify your business registration (BR) using option 3 below, and your profile will be listed together with professionals in search.'))}</div>`
+        : '';
+    return `${rejected}${business}
         <p>${esc(t('job_why', 'A “Job verified” badge shows families your job is genuine, and verified profiles are listed first among similar profiles. Other members only see the badge — never your documents or numbers. Choose one way:'))}</p>
         <div class="alert alert-info mt-1">
             <b>${esc(t('job_which', 'Which way suits you?'))}</b>

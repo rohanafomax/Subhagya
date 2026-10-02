@@ -34,7 +34,7 @@ const STEPS = [
         key: 'st_career', en: 'Education & career', fields: [
             { id: 'education', en: 'Highest education', type: 'select', list: 'education', req: 1 },
             { id: 'educationDetail', en: 'Field / institute', type: 'text', hint: 'e.g. BSc Engineering, University of Moratuwa' },
-            { id: 'employment', en: 'Employment type', type: 'select', list: 'employment', req: 1 },
+            { id: 'employment', en: 'Employment type', type: 'select', list: 'employment', req: 1, hint: 'Business owners and self-employed: verify your business registration later (My Account → Verification) to be listed with professionals.' },
             { id: 'school', en: 'School', type: 'text' },
             { id: 'profession', en: 'Profession', type: 'text', req: 1 },
             { id: 'position', en: 'Job position', type: 'text', hint: 'e.g. Senior Engineer, Teacher, Manager' },

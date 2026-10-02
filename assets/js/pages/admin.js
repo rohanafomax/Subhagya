@@ -406,9 +406,12 @@ $('#tab-body').addEventListener('click', async e => {
         } else if (d.jobOk) {
             const jc = data.jobChecks.find(x => x.uid === d.jobOk);
             const body = JOB_BODIES.find(b => b.v === jc?.body);
+            const prof = await get(['profiles', d.jobOk]);
+            const isBusiness = ['business', 'self'].includes(prof?.employment);
             await updateDoc(doc(db, 'profiles', d.jobOk), {
                 jobVerified: true, jobVia: jc?.method || 'document',
-                jobWorkplace: jc?.method === 'register' && body && body.v !== 'other' ? body.en.split(' (')[0] : ''
+                jobWorkplace: jc?.method === 'register' && body && !['other', 'overseas'].includes(body.v) ? body.en.split(' (')[0]
+                    : isBusiness ? 'Registered business' : ''
             });
             await updateDoc(doc(db, 'jobChecks', d.jobOk), { status: 'approved', number: deleteField(), image: deleteField(), reviewedAt: serverTimestamp() });
             toast('Marked as job verified');

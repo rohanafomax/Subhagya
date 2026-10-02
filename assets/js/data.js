@@ -82,9 +82,15 @@ export function employmentShort(v, lang = 'en') {
     const o = EMPLOYMENT.find(e => e.v === v);
     return o ? (lang === 'si' ? o.si : o.en).replace(/\s*\((other|වෙනත්)\)$/, '') : '';
 }
-/** Search rank for an employment value (0 = shown first). Profiles saved before this field existed count as 0. */
-export function employmentRank(v) {
-    return EMPLOYMENT.find(e => e.v === v)?.rank ?? 0;
+/**
+ * Search rank for a profile (0 = shown first). Business owners and self-employed
+ * whose business registration has been verified rank with professionals.
+ * Profiles saved before the employment field existed count as 0.
+ */
+export function employmentRank(p) {
+    const rank = EMPLOYMENT.find(e => e.v === p?.employment)?.rank ?? 0;
+    if (rank === 1 && p?.jobVerified) return 0;
+    return rank;
 }
 
 // Professional bodies with public registers, used for job verification by registration number.
