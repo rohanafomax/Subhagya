@@ -2,7 +2,7 @@ import {
     doc, getDoc, getDocs, updateDoc, collection, query, where, serverTimestamp, deleteField, Timestamp, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
-import { contactInfoIn, PUBLIC_TEXT_FIELDS } from '../checks.js';
+import { contactInfoIn, PUBLIC_TEXT_FIELDS, isDisposableEmail, nameProblems, consistencyProblems } from '../checks.js';
 
 await requireAuth({ admin: true });
 
@@ -55,32 +55,63 @@ async function others(coll, field, value, uid) {
     } catch { return []; }
 }
 
-/** Returns [{level: 'red'|'amber', text}] for one profile. */
+/**
+ * Returns [{level: 'red'|'amber', text}] for one profile.
+ * Red = strong sign of a fake/duplicate account; amber = worth a look.
+ */
 async function flagsFor(p, c, photoDocs) {
     const flags = [];
     const add = (level, text) => flags.push({ level, text });
+    const age = ageFrom(p.dob);
 
+    // what the profile says
     for (const f of PUBLIC_TEXT_FIELDS) {
         const { strict, soft } = contactInfoIn(p[f]);
         for (const h of strict) add('red', `${h.kind} in “${f}”: ${h.sample}`);
         for (const h of soft) add('amber', `mentions ${h.sample} in “${f}”`);
     }
     if (!photoDocs.length) add('red', 'No photo');
-
-    const [reports, samePhone, samePhotos] = await Promise.all([
-        getDocs(query(collection(db, 'reports'), where('target', '==', p.uid))).then(s => s.docs.map(d => d.data())).catch(() => []),
-        others('contacts', 'phoneKey', c?.phoneKey, p.uid),
-        Promise.all(photoDocs.filter(ph => ph.hash).map(ph => others('photos', 'hash', ph.hash, p.uid))).then(a => [...new Set(a.flat())])
-    ]);
-    if (reports.length) add('red', `Reported ${reports.length}× before (${[...new Set(reports.map(r => label('reason', r.reason)))].join(', ')})`);
-    if (samePhone.length) add('red', `Same phone number as ${samePhone.map(refCode).join(', ')} — possible duplicate or fake account`);
-    if (samePhotos.length) add('red', `Same photo used by ${samePhotos.map(refCode).join(', ')} — possible stolen photo`);
-    if (p.rejectReason) add('amber', `Sent back before: ${p.rejectReason}`);
+    for (const n of nameProblems(p.firstName)) add('amber', n);
+    for (const n of consistencyProblems(p, age)) add('amber', n);
     if (String(p.about || '').length < 120) add('amber', 'Very short “About me”');
     const letters = String(p.about || '').replace(/[^a-z]/gi, '');
     if (letters.length > 40 && letters === letters.toUpperCase()) add('amber', '“About me” is all capitals');
-    const age = ageFrom(p.dob);
-    if (age > 70) add('amber', `Age ${age} — check the date of birth`);
+    if (p.rejectReason) add('amber', `Sent back before: ${p.rejectReason}`);
+
+    // comparison with other accounts, and behaviour
+    const [user, reports, samePhone, samePhotos, sameAbout, sameDob, sent] = await Promise.all([
+        get(['users', p.uid]),
+        getDocs(query(collection(db, 'reports'), where('target', '==', p.uid))).then(s => s.docs.map(d => d.data())).catch(() => []),
+        others('contacts', 'phoneKey', c?.phoneKey, p.uid),
+        Promise.all(photoDocs.filter(ph => ph.hash).map(ph => others('photos', 'hash', ph.hash, p.uid))).then(a => [...new Set(a.flat())]),
+        others('profiles', 'aboutHash', p.aboutHash, p.uid),
+        getDocs(query(collection(db, 'profiles'), where('dob', '==', p.dob || '-'))).then(s => s.docs.map(d => d.data())
+            .filter(o => o.uid !== p.uid && String(o.firstName).trim().toLowerCase() === String(p.firstName).trim().toLowerCase())
+            .map(o => o.uid)).catch(() => []),
+        getDocs(query(collection(db, 'interests'), where('from', '==', p.uid))).then(s => s.docs.map(d => d.data())).catch(() => [])
+    ]);
+
+    if (reports.length) {
+        const by = new Set(reports.map(r => r.by)).size;
+        add('red', `Reported ${reports.length}× by ${by} member${by > 1 ? 's' : ''} (${[...new Set(reports.map(r => label('reason', r.reason)))].join(', ')})`);
+    }
+    if (samePhone.length) add('red', `Same phone number as ${samePhone.map(refCode).join(', ')} — possible duplicate or fake account`);
+    if (samePhotos.length) add('red', `Same photo used by ${samePhotos.map(refCode).join(', ')} — possible stolen photo`);
+    if (sameAbout.length) add('red', `“About me” copied from/to ${sameAbout.map(refCode).join(', ')}`);
+    if (sameDob.length) add('red', `Same name and date of birth as ${sameDob.map(refCode).join(', ')} — possible duplicate account`);
+    if (isDisposableEmail(user?.email)) add('red', `Temporary email address (${user.email})`);
+
+    const dayAgo = Date.now() - 864e5;
+    const lastDay = sent.filter(i => (toDate(i.createdAt)?.getTime() || 0) > dayAgo).length;
+    if (lastDay >= 15) add('red', `Sent ${lastDay} interests in the last 24 hours — possible spam`);
+    else if (lastDay >= 8) add('amber', `Sent ${lastDay} interests in the last 24 hours`);
+    const answered = sent.filter(i => i.status !== 'pending');
+    const declined = answered.filter(i => i.status === 'declined').length;
+    if (answered.length >= 8 && declined / answered.length >= 0.8) add('amber', `${declined} of ${answered.length} interests declined`);
+
+    const joined = toDate(user?.createdAt);
+    if (joined && Date.now() - joined.getTime() < 15 * 60 * 1000 && (p.photoCount || 0) <= 1) add('amber', 'Account created minutes before submitting, with one photo');
+
     return flags;
 }
 
@@ -176,6 +207,15 @@ const tabs = {
         }));
         return rows.join('');
     },
+    async scan() {
+        return `<p>Checks every <b>live</b> profile for signs of fake or duplicate accounts: reports, the same phone number, photo,
+            “About me” or name + birth date as another account, contact details hidden in text, temporary emails,
+            interest spamming and details that don't fit together.</p>
+            <p class="muted">Run it once a week, or whenever you get reports. Each scan uses roughly 10 database reads per profile
+            (the free plan allows 50,000 a day).</p>
+            <button class="btn btn-maroon mt-1" id="run-scan">Run scan</button>
+            <div id="scan-out" class="mt-2"></div>`;
+    },
     async find() {
         return `<form id="find-form" class="row"><div class="field" style="flex:1"><input id="find-q" placeholder="Reference code (SB-XXXXX) or full user ID"></div><button class="btn btn-maroon">Find</button></form><div id="find-out" class="mt-2"></div>`;
     }
@@ -191,6 +231,47 @@ async function show(tab) {
 $$('#tabs button').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
 async function refresh() { await load(); await show(current); }
 
+async function runScan(btn) {
+    const out = $('#scan-out');
+    btn.disabled = true;
+    try {
+        const snap = await getDocs(query(collection(db, 'profiles'), where('status', '==', 'approved')));
+        const profiles = snap.docs.map(d => d.data());
+        const results = [];
+        let done = 0;
+        // check 5 profiles at a time
+        const queue = [...profiles];
+        await Promise.all(Array.from({ length: 5 }, async () => {
+            while (queue.length) {
+                const p = queue.shift();
+                const [c, photoDocs] = await Promise.all([
+                    get(['contacts', p.uid]),
+                    Promise.all(Array.from({ length: p.photoCount || 0 }, (_, i) => get(['photos', `${p.uid}_${i}`]))).then(a => a.filter(Boolean))
+                ]);
+                const flags = (await flagsFor(p, c, photoDocs)).filter(f => !/^Very short|^Sent back before/.test(f.text));
+                if (flags.length) results.push({ p, flags, photo: photoDocs[0]?.data, red: flags.filter(f => f.level === 'red').length });
+                out.innerHTML = `<div class="spinner"></div><p class="center muted">Checked ${++done} of ${profiles.length}…</p>`;
+            }
+        }));
+        results.sort((a, b) => b.red - a.red || b.flags.length - a.flags.length);
+        const red = results.filter(r => r.red).length;
+        out.innerHTML = `<div class="alert ${red ? 'alert-err' : 'alert-ok'}">Checked ${profiles.length} live profiles:
+                <b>${red}</b> with serious warnings, <b>${results.length - red}</b> worth a look.</div>` +
+            results.map(({ p, flags, photo }) => `<div class="review">
+                <div class="pics">${photo ? img(photo) : '<div class="muted">No photo</div>'}</div>
+                <div><h3>${esc(p.firstName)}, ${ageFrom(p.dob)} <span class="muted">${refCode(p.uid)}</span></h3>
+                    ${kv('Location', label('district', p.district))} ${kv('Profession', p.profession)}
+                    ${flagsHtml(flags)}
+                    <div class="row mt-1">
+                        <a class="btn btn-sm btn-ghost" href="profile.html?id=${p.uid}" target="_blank">Open profile</a>
+                        <button class="btn btn-sm btn-danger" data-reject="${p.uid}">Remove / needs changes…</button>
+                    </div></div></div>`).join('');
+    } catch (err) {
+        out.innerHTML = `<div class="alert alert-err">${esc(friendlyError(err))}</div>`;
+    }
+    btn.disabled = false;
+}
+
 function ask(title, placeholder) {
     return new Promise(resolve => {
         const m = modal(`<h3>${esc(title)}</h3><div class="field"><textarea id="ask-text" placeholder="${esc(placeholder)}"></textarea></div>
@@ -205,6 +286,7 @@ $('#tab-body').addEventListener('click', async e => {
     if (z) { modal(`<img src="${z.src}" style="width:100%"><div class="row mt-1"><span class="spacer"></span><button class="btn btn-ghost btn-sm" data-close>Close</button></div>`).querySelector('.modal').style.width = 'min(100%, 900px)'; return; }
     const b = e.target.closest('button');
     if (!b) return;
+    if (b.id === 'run-scan') { runScan(b); return; }
     const d = b.dataset;
     try {
         if (d.approve) {
@@ -245,7 +327,12 @@ $('#tab-body').addEventListener('click', async e => {
         } else if (d.dismiss) {
             await updateDoc(doc(db, 'reports', d.dismiss), { status: 'dismissed', reviewedAt: serverTimestamp() });
         } else return;
-        await refresh();
+        if (current === 'scan') {           // keep the scan results on screen
+            b.closest('.review')?.remove();
+            await load();
+        } else {
+            await refresh();
+        }
     } catch (err) { toast(friendlyError(err), true); }
 });
 

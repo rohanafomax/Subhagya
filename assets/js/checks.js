@@ -47,6 +47,52 @@ export function phoneKey(phone) {
     return d.length >= 9 ? d.slice(-9) : '';
 }
 
+// ───────── fake-profile signals ─────────
+
+// Throwaway email services often used for fake accounts.
+const DISPOSABLE = new Set([
+    'mailinator.com', 'guerrillamail.com', 'guerrillamail.info', 'sharklasers.com', '10minutemail.com', '10minutemail.net',
+    'tempmail.com', 'temp-mail.org', 'temp-mail.io', 'tempmail.net', 'tempmailo.com', 'throwawaymail.com', 'yopmail.com',
+    'yopmail.net', 'getnada.com', 'nada.email', 'trashmail.com', 'maildrop.cc', 'dispostable.com', 'fakeinbox.com',
+    'mintemail.com', 'mohmal.com', 'emailondeck.com', 'spamgourmet.com', 'mailnesia.com', 'tempinbox.com', 'mytemp.email',
+    'burnermail.io', 'inboxkitten.com', 'mail.tm', 'tmail.ws', 'tmpmail.org', 'tmpmail.net', 'linshiyouxiang.net', 'emailfake.com'
+]);
+export function isDisposableEmail(email) {
+    const domain = String(email || '').toLowerCase().split('@')[1] || '';
+    return DISPOSABLE.has(domain);
+}
+
+/** Problems with a first name that suggest a fake or careless profile. */
+export function nameProblems(name) {
+    const n = String(name || '').trim();
+    const out = [];
+    if (!n) return out;
+    if (/\d/.test(n)) out.push('name contains numbers');
+    if (/[\u{1F300}-\u{1FAFF}☀-➿]/u.test(n)) out.push('name contains emoji');
+    if (/(.)\1{2,}/i.test(n)) out.push('name has a letter repeated 3+ times');
+    if (n.replace(/[^\p{L}]/gu, '').length < 2) out.push('name too short');
+    if (/\b(test|fake|admin|unknown|abc|asdf|qwerty|xyz|sexy|hot|lover?|darling)\b/i.test(n)) out.push('name looks made-up');
+    return out;
+}
+
+/** Details that don't fit together (common in invented profiles). */
+export function consistencyProblems(p, age) {
+    const out = [];
+    if (age != null) {
+        if (age < 22 && ['master', 'doctorate'].includes(p.education)) out.push(`age ${age} with ${p.education === 'doctorate' ? 'a doctorate' : "a master's degree"}`);
+        if (age < 21 && ['divorced', 'widowed'].includes(p.marital)) out.push(`age ${age} and ${p.marital}`);
+        if (age > 70) out.push(`age ${age} — check the date of birth`);
+    }
+    if (p.height && (p.height < 135 || p.height > 210)) out.push(`unusual height ${p.height} cm`);
+    if (p.residence === 'abroad' && /^sri\s*lanka$/i.test(String(p.country || '').trim())) out.push('says “overseas” but country is Sri Lanka');
+    return out;
+}
+
+/** Normalised text used to spot the same “About me” copied between accounts. */
+export function normaliseText(s) {
+    return String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
 /** SHA-256 of a string, hex encoded — used to spot the same photo on two accounts. */
 export async function sha256(str) {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));

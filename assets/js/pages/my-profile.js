@@ -3,7 +3,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, t, $, $$, esc, toast, fillSelect, friendlyError, applyI18n, ageFrom } from '../app.js';
 import { compressImage } from '../image.js';
-import { contactInfoIn, PUBLIC_TEXT_FIELDS, phoneKey, sha256 } from '../checks.js';
+import { contactInfoIn, PUBLIC_TEXT_FIELDS, phoneKey, sha256, normaliseText } from '../checks.js';
 
 const MAX_PHOTOS = 3;
 
@@ -215,6 +215,8 @@ async function save() {
         uid,
         status: 'pending',
         photoCount: photos.length,
+        // fingerprint of "About me" so the admin can spot text copied between accounts
+        aboutHash: await sha256(normaliseText(pub.about)),
         updatedAt: serverTimestamp(),
         // fields only an admin may change — keep existing values
         verified: existing?.verified ?? false,

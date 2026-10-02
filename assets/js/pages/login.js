@@ -4,6 +4,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { auth, configured, whenReady, t, $, $$, esc, friendlyError, applyI18n } from '../app.js';
 import { GOOGLE_SIGNIN } from '../config.js';
+import { isDisposableEmail } from '../checks.js';
 
 if (!GOOGLE_SIGNIN) {
     $('#google-btn').hidden = true;
@@ -63,6 +64,7 @@ $('#auth-form').addEventListener('submit', async e => {
         } else {
             const name = $('#name').value.trim();
             if (!name) throw new Error(t('err_name', 'Please enter your name.'));
+            if (isDisposableEmail(email)) throw new Error(t('err_disposable', 'Temporary email addresses are not accepted. Please use your regular email.'));
             if (password.length < 8) throw { code: 'auth/weak-password' };
             if (!$('#agree').checked) throw new Error(t('err_agree', 'Please accept the Terms and Privacy policy.'));
             const cred = await createUserWithEmailAndPassword(auth, email, password);
