@@ -59,7 +59,7 @@ export const EDUCATION = [
 ];
 
 // Search ranks profiles by `rank`: lower numbers appear first.
-// Business owners and self-employed are listed after salaried professionals.
+// Business owners and self-employed are listed after salaried professionals; not working is last.
 export const EMPLOYMENT = [
     { ...opt('professional', 'Professional (doctor, engineer, accountant, lawyer, IT…)', 'වෘත්තිකයෙක් (වෛද්‍ය, ඉංජිනේරු, ගණකාධිකාරී, නීතිඥ, IT…)'), rank: 0 },
     { ...opt('government', 'Government / semi-government', 'රජයේ / අර්ධ රාජ්‍ය'), rank: 0 },
@@ -68,7 +68,7 @@ export const EMPLOYMENT = [
     { ...opt('business', 'Own business', 'ස්වයං ව්‍යාපාර'), rank: 1 },
     { ...opt('self', 'Self-employed', 'ස්වයං රැකියා'), rank: 1 },
     { ...opt('student', 'Student', 'සිසුවෙක්'), rank: 0 },
-    { ...opt('notworking', 'Not working', 'රැකියාවක් නැත'), rank: 0 }
+    { ...opt('notworking', 'Not working', 'රැකියාවක් නැත'), rank: 2 }     // always last
 ];
 /** Search rank for an employment value (0 = shown first). Profiles saved before this field existed count as 0. */
 export function employmentRank(v) {

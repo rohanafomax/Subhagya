@@ -104,6 +104,7 @@ async function search() {
                 && (!f('education') || eduRank(p.education) >= eduRank(f('education')))
                 && (!$('#q-verified').checked || p.verified)
                 && (!$('#q-shortlist').checked || shortlist.includes(p.uid))
+                && (!$('#q-working').checked || p.employment !== 'notworking')
                 && !blocked.includes(p.uid);
         });
         for (const p of all) p._score = matchScore(myProfile, p);
@@ -113,7 +114,7 @@ async function search() {
         all.sort((a, b) => {
             if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);          // Premium always first
             const er = employmentRank(a.employment) - employmentRank(b.employment);
-            if (er) return er;                                                   // business / self-employed after professionals
+            if (er) return er;                                                   // business / self-employed after professionals; not working last
             if (sort === 'best' && (a._score ?? -1) !== (b._score ?? -1)) return (b._score ?? -1) - (a._score ?? -1);
             if (sort !== 'new' && a.verified !== b.verified) return b.verified - a.verified;
             return newest(a, b);
