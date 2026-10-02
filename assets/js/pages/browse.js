@@ -35,6 +35,7 @@ function card(p) {
     return `<a class="p-card${isPrem(p) ? ' premium' : ''}" href="profile.html?id=${p.uid}">
         <div class="p-photo">${photo}<div class="badges">
             ${p.verified ? `<span class="badge badge-verified">${ICON_TICK}${esc(t('id_verified', 'ID verified'))}</span>` : ''}
+            ${p.jobVerified ? `<span class="badge badge-job">${ICON_TICK}${esc(t('job_verified', 'Job verified'))}</span>` : ''}
             ${isPrem(p) ? `<span class="badge badge-premium">★</span>` : ''}
             ${shortlisted ? `<span class="badge badge-pending">☆</span>` : ''}
         </div></div>
@@ -105,6 +106,7 @@ async function search() {
                 && (!$('#q-verified').checked || p.verified)
                 && (!$('#q-shortlist').checked || shortlist.includes(p.uid))
                 && (!$('#q-working').checked || p.employment !== 'notworking')
+                && (!$('#q-jobverified').checked || p.jobVerified)
                 && !blocked.includes(p.uid);
         });
         for (const p of all) p._score = matchScore(myProfile, p);
@@ -115,6 +117,7 @@ async function search() {
             if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);          // Premium always first
             const er = employmentRank(a.employment) - employmentRank(b.employment);
             if (er) return er;                                                   // business / self-employed after professionals; not working last
+            if (!!a.jobVerified !== !!b.jobVerified) return !!b.jobVerified - !!a.jobVerified;   // job-verified first within a group
             if (sort === 'best' && (a._score ?? -1) !== (b._score ?? -1)) return (b._score ?? -1) - (a._score ?? -1);
             if (sort !== 'new' && a.verified !== b.verified) return b.verified - a.verified;
             return newest(a, b);

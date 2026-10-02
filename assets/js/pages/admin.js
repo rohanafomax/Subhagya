@@ -3,10 +3,11 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
 import { contactInfoIn, PUBLIC_TEXT_FIELDS, isDisposableEmail, nameProblems, consistencyProblems } from '../checks.js';
+import { JOB_BODIES } from '../data.js';
 
 await requireAuth({ admin: true });
 
-const data = { profiles: [], payments: [], verifications: [], reports: [] };
+const data = { profiles: [], payments: [], verifications: [], jobChecks: [], reports: [] };
 
 async function get(path) {
     try { const s = await getDoc(doc(db, ...path)); return s.exists() ? s.data() : null; } catch { return null; }
@@ -21,10 +22,12 @@ const img = src => `<img src="${src}" alt="" data-zoom>`;
 
 async function load() {
     const q = (c, f, v) => getDocs(query(collection(db, c), where(f, '==', v)));
-    const [p, pay, v, r] = await Promise.all([
+    const [p, pay, v, r, j] = await Promise.all([
         q('profiles', 'status', 'pending'), q('payments', 'status', 'pending'),
-        q('verifications', 'status', 'pending'), q('reports', 'status', 'open')
+        q('verifications', 'status', 'pending'), q('reports', 'status', 'open'),
+        q('jobChecks', 'status', 'pending').catch(() => ({ docs: [] }))
     ]);
+    data.jobChecks = j.docs.map(d => d.data()).sort(byNewest).reverse();
     data.profiles = p.docs.map(d => d.data()).sort(byNewest).reverse();       // oldest first
     data.payments = pay.docs.map(d => ({ id: d.id, ...d.data() })).sort(byNewest).reverse();
     data.verifications = v.docs.map(d => d.data()).sort(byNewest).reverse();
@@ -186,6 +189,31 @@ const tabs = {
                     <div class="row mt-2">
                         <button class="btn btn-sm btn-maroon" data-ver-ok="${v.uid}">Verified</button>
                         <button class="btn btn-sm btn-danger" data-ver-no="${v.uid}">Reject…</button>
+                    </div>
+                </div></div>`;
+        }));
+        return rows.join('');
+    },
+    async jobChecks() {
+        if (!data.jobChecks.length) return '<div class="empty"><p>No job checks waiting.</p></div>';
+        const rows = await Promise.all(data.jobChecks.map(async jc => {
+            const p = await get(['profiles', jc.uid]);
+            const body = JOB_BODIES.find(b => b.v === jc.body);
+            const evidence = jc.method === 'register'
+                ? `${kv('Professional body', body?.en || jc.body)} ${kv('Registration number', jc.number)}
+                   ${body?.url ? `<a class="btn btn-sm btn-ghost mt-1" href="${body.url}" target="_blank" rel="noopener">Open ${esc(body.en.split(' (')[0])} website ↗</a>` : ''}
+                   <p class="muted mt-1">Search the official register for this number and check the name matches the profile.</p>`
+                : `<p class="muted">Staff ID / business registration photo. Check the name and workplace match the profile.</p>`;
+            return `<div class="review">
+                <div class="pics">${jc.method === 'document' && jc.image ? img(jc.image) : ''}</div>
+                <div>${p ? `<h3>${esc(p.firstName)}, ${ageFrom(p.dob)} <span class="muted">${refCode(jc.uid)}</span></h3>
+                        ${kv('Profession', p.profession)} ${kv('Employment', p.employment && label('employment', p.employment))} ${kv('Sector', p.employer)}`
+                    : '<p>Profile missing</p>'}
+                    ${evidence}
+                    <p class="muted">The number or photo is deleted when you decide.</p>
+                    <div class="row mt-2">
+                        <button class="btn btn-sm btn-maroon" data-job-ok="${jc.uid}">Job verified</button>
+                        <button class="btn btn-sm btn-danger" data-job-no="${jc.uid}">Reject…</button>
                     </div>
                 </div></div>`;
         }));
@@ -375,6 +403,19 @@ $('#tab-body').addEventListener('click', async e => {
             const note = await ask('Why could it not be verified?', 'e.g. NIC photo is blurry. Please upload again.');
             if (!note) return;
             await updateDoc(doc(db, 'verifications', d.verNo), { status: 'rejected', note, nic: deleteField(), selfie: deleteField(), reviewedAt: serverTimestamp() });
+        } else if (d.jobOk) {
+            const jc = data.jobChecks.find(x => x.uid === d.jobOk);
+            const body = JOB_BODIES.find(b => b.v === jc?.body);
+            await updateDoc(doc(db, 'profiles', d.jobOk), {
+                jobVerified: true, jobVia: jc?.method || 'document',
+                jobWorkplace: jc?.method === 'register' && body && body.v !== 'other' ? body.en.split(' (')[0] : ''
+            });
+            await updateDoc(doc(db, 'jobChecks', d.jobOk), { status: 'approved', number: deleteField(), image: deleteField(), reviewedAt: serverTimestamp() });
+            toast('Marked as job verified');
+        } else if (d.jobNo) {
+            const note = await ask('Why could the job not be verified?', 'e.g. Number not found on the register. Please check and try again.');
+            if (!note) return;
+            await updateDoc(doc(db, 'jobChecks', d.jobNo), { status: 'rejected', note, number: deleteField(), image: deleteField(), reviewedAt: serverTimestamp() });
         } else if (d.takedown) {
             const reason = await ask('Reason shown to the member', 'e.g. Removed after reports of a fake profile.');
             if (!reason) return;

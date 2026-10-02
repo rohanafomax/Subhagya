@@ -223,6 +223,9 @@ async function save() {
         verified: existing?.verified ?? false,
         premium: existing?.premium ?? false,
         premiumUntil: existing?.premiumUntil ?? null,
+        jobVerified: existing?.jobVerified ?? false,
+        jobVia: existing?.jobVia ?? '',
+        jobWorkplace: existing?.jobWorkplace ?? '',
         createdAt: existing?.createdAt ?? serverTimestamp()
     };
 

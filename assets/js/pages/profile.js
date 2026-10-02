@@ -7,6 +7,7 @@ import {
 } from '../app.js';
 import { FREE_INTEREST_LIMIT } from '../config.js';
 import { matchScore } from '../match.js';
+import { jobBadgeText } from '../job.js';
 
 const id = new URLSearchParams(location.search).get('id');
 const me = await requireAuth();
@@ -71,6 +72,7 @@ async function render() {
                 <div class="row">
                     <h1 style="color:var(--maroon);font-size:2.3rem;line-height:1.1">${esc(p.firstName)}, ${age}</h1>
                     ${p.verified ? `<span class="badge badge-verified">${ICON_TICK}${esc(t('id_verified', 'ID verified'))}</span>` : ''}
+                    ${p.jobVerified ? `<span class="badge badge-job">${ICON_TICK}${esc(jobBadgeText(p, t))}</span>` : ''}
                     ${isPrem ? `<span class="badge badge-premium">★ ${esc(t('premium', 'Premium'))}</span>` : ''}
                     ${score != null ? `<span class="badge badge-approved" title="${esc(t('match_hint', 'How well you fit each other’s stated preferences'))}">${score}% ${esc(t('pref_match_long', 'preference match'))}</span>` : ''}
                 </div>

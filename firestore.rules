@@ -32,6 +32,19 @@ service cloud.firestore {
     function profileApproved(uid) {
       return exists(path('profiles', uid)) && get(path('profiles', uid)).data.status == 'approved';
     }
+    // Personal email providers can't prove a workplace. Keep in step with FREE_MAIL in checks.js.
+    function freeDomain(d) {
+      return d in ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.uk', 'yahoo.co.in', 'ymail.com', 'rocketmail.com',
+        'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'aol.com',
+        'proton.me', 'protonmail.com', 'gmx.com', 'gmx.net', 'mail.com', 'zoho.com', 'yandex.com', 'rediffmail.com', 'sltnet.lk',
+        'mailinator.com', 'yopmail.com', 'guerrillamail.com', 'tempmail.com', 'temp-mail.org', '10minutemail.com'];
+    }
+    // The job badge fields, comparing "missing" the same as "not verified".
+    function jobFieldsSame() {
+      return request.resource.data.get('jobVerified', false) == resource.data.get('jobVerified', false)
+        && request.resource.data.get('jobVia', '') == resource.data.get('jobVia', '')
+        && request.resource.data.get('jobWorkplace', '') == resource.data.get('jobWorkplace', '');
+    }
 
     // ── Accounts: role and plan can only be changed by an admin ──
     match /users/{uid} {
@@ -52,12 +65,21 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && request.resource.data.status == 'pending'
         && request.resource.data.verified == false
-        && request.resource.data.premium == false;
+        && request.resource.data.premium == false
+        && request.resource.data.get('jobVerified', false) == false;
       // Owners can edit, hide, or resubmit — never approve themselves or grant badges.
       allow update: if isAdmin()
         || (signedIn() && me() == uid
             && request.resource.data.status in ['pending', 'hidden']
-            && unchanged(['uid', 'verified', 'premium', 'premiumUntil', 'createdAt']));
+            && unchanged(['uid', 'verified', 'premium', 'premiumUntil', 'createdAt'])
+            && jobFieldsSame())
+        // ...except the job badge, once their work email has been confirmed (see jobEmails below)
+        || (signedIn() && me() == uid
+            && changedOnly(['jobVerified', 'jobVia', 'jobWorkplace'])
+            && request.resource.data.jobVerified == true
+            && request.resource.data.jobVia == 'email'
+            && exists(path('jobEmails', uid))
+            && request.resource.data.jobWorkplace == get(path('jobEmails', uid)).data.domain);
       allow delete: if isAdmin() || (signedIn() && me() == uid);
     }
 
@@ -122,6 +144,51 @@ service cloud.firestore {
       allow create, update: if isAdmin()
         || (signedIn() && me() == uid && request.resource.data.status == 'pending' && request.resource.data.uid == uid);
       allow delete: if signedIn() && (me() == uid || isAdmin());
+    }
+
+    // ── Job verification: registration number or staff-ID photo, checked by an admin ──
+    match /jobChecks/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow create, update: if isAdmin()
+        || (signedIn() && me() == uid
+            && request.resource.data.uid == uid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.method in ['register', 'document']
+            && (!('image' in request.resource.data) || request.resource.data.image.size() < 700000));
+      allow delete: if signedIn() && (me() == uid || isAdmin());
+    }
+
+    // ── Job verification by work email (automatic) ──
+    // 1. The member records which work email they are verifying.
+    match /jobEmailRequests/{uid} {
+      allow read, delete: if signedIn() && (me() == uid || isAdmin());
+      allow create, update: if signedIn() && me() == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && !freeDomain(request.resource.data.email.split('@')[1]);
+    }
+    // 2. Signed in *as the work email* (via the emailed link), the browser writes both documents
+    //    below in one batch. Each work email can verify only one profile.
+    match /jobEmailIndex/{email} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+        && request.auth.token.email_verified == true
+        && email == request.auth.token.email.lower()
+        && !freeDomain(email.split('@')[1])
+        && request.resource.data.uid is string
+        && get(path('jobEmailRequests', request.resource.data.uid)).data.email == email;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == me());
+    }
+    match /jobEmails/{uid} {
+      allow read: if signedIn() && (me() == uid || isAdmin());
+      allow create: if signedIn()
+        && request.auth.token.email_verified == true
+        && request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.domain == request.resource.data.email.split('@')[1]
+        && get(path('jobEmailRequests', uid)).data.email == request.resource.data.email
+        && getAfter(path('jobEmailIndex', request.resource.data.email)).data.uid == uid;
+      allow delete: if isAdmin() || (signedIn() && me() == uid);
     }
 
     // ── Reports of bad profiles ──

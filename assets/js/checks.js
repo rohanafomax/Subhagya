@@ -62,6 +62,18 @@ export function isDisposableEmail(email) {
     return DISPOSABLE.has(domain);
 }
 
+// Free/personal email providers — not accepted as proof of a workplace.
+// Keep in step with freeDomain() in firestore.rules.
+export const FREE_MAIL = [
+    'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.uk', 'yahoo.co.in', 'ymail.com', 'rocketmail.com',
+    'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'live.com', 'msn.com', 'icloud.com', 'me.com', 'aol.com',
+    'proton.me', 'protonmail.com', 'gmx.com', 'gmx.net', 'mail.com', 'zoho.com', 'yandex.com', 'rediffmail.com', 'sltnet.lk'
+];
+export function isFreeMail(email) {
+    const domain = String(email || '').toLowerCase().trim().split('@')[1] || '';
+    return FREE_MAIL.includes(domain) || isDisposableEmail(email);
+}
+
 /** Problems with a first name that suggest a fake or careless profile. */
 export function nameProblems(name) {
     const n = String(name || '').trim();

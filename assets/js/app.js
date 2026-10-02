@@ -303,7 +303,8 @@ export async function updateBadges() {
     if (_me.account.role === 'admin') {
         const c = (coll, field, v) => count(query(collection(db, coll), where(field, '==', v)));
         const n = await Promise.all([c('profiles', 'status', 'pending'), c('payments', 'status', 'pending'),
-            c('verifications', 'status', 'pending'), c('reports', 'status', 'open')]);
+            c('verifications', 'status', 'pending'), c('reports', 'status', 'open'),
+            c('jobChecks', 'status', 'pending').catch(() => 0)]);
         admin = n.reduce((a, b) => a + b, 0);
     }
 

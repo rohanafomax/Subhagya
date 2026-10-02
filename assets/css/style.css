@@ -252,6 +252,7 @@ a { color: var(--maroon); }
 }
 .badge svg { width: 12px; height: 12px; }
 .badge-verified { background: #e3f1fb; color: #145a8c; }
+.badge-job { background: #e6f4ea; color: #1f6b3a; }
 .badge-premium { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: var(--maroon-deep); }
 .badge-pending { background: #fbf0d6; color: var(--warn); }
 .badge-approved { background: #e8f5ee; color: var(--ok); }

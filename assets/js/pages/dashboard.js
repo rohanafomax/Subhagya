@@ -9,12 +9,15 @@ import {
     friendlyError, applyI18n, modal, setLang, getLang, logout, markMatchesSeen, updateBadges
 } from '../app.js';
 import { compressImage } from '../image.js';
+import { JOB_BODIES } from '../data.js';
+import { isFreeMail } from '../checks.js';
+import { sendWorkEmailLink, pendingWorkEmail, syncJobBadge } from '../job.js';
 
 const me = await requireAuth();
 const uid = me.user.uid;
 const premium = isPremium(me.account);
 
-let profile = null, received = [], sent = [], verification = null;
+let profile = null, received = [], sent = [], verification = null, jobCheck = null;
 const people = new Map();   // uid → profile (or null if not visible)
 
 $('#hello-name').textContent = me.user.displayName || me.user.email;
@@ -34,13 +37,17 @@ async function photoOf(id) {
 }
 
 async function load() {
-    const [p, r, s, v] = await Promise.all([
+    const [p, r, s, v, j] = await Promise.all([
         getDoc(doc(db, 'profiles', uid)),
         getDocs(query(collection(db, 'interests'), where('to', '==', uid))),
         getDocs(query(collection(db, 'interests'), where('from', '==', uid))),
-        getDoc(doc(db, 'verifications', uid))
+        getDoc(doc(db, 'verifications', uid)),
+        getDoc(doc(db, 'jobChecks', uid)).catch(() => null)
     ]);
     profile = p.exists() ? p.data() : null;
+    jobCheck = j?.exists() ? j.data() : null;
+    // work email confirmed on another device? switch the badge on now
+    if (await syncJobBadge(uid, profile).catch(() => false)) toast(t('job_ok_toast', 'Job verified ✓'));
     const sortNew = (a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0);
     received = r.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortNew);
     sent = s.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortNew);
@@ -144,17 +151,8 @@ const tabs = {
             <p class="muted mt-2">${esc(t('hide_note', 'Hiding removes you from search (e.g. while talking to a match). Showing it again sends it for a quick review.'))}</p>`;
     },
     async verify() {
-        if (profile?.verified) return `<div class="alert alert-ok">✓ ${esc(t('verified_ok', 'Your identity is verified. A blue “ID verified” badge appears on your profile.'))}</div>`;
-        if (verification?.status === 'pending') return `<div class="alert alert-info">${esc(t('verify_pending', 'Your documents were received and are being checked. This usually takes 1–2 days.'))}</div>`;
-        const rejected = verification?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('verify_rejected', 'We could not verify the last upload.'))} ${esc(verification.note || '')}</div>` : '';
-        return `${rejected}
-            <p>${esc(t('verify_why', 'Verified profiles get up to 3× more responses. Upload a photo of your NIC (front) and a selfie holding the NIC. We only use these to confirm your identity and delete the images after checking.'))}</p>
-            <div class="form-grid mt-2">
-                <div class="field"><label>${esc(t('nic_front', 'NIC – front side'))}</label><input type="file" accept="image/*" id="nic"></div>
-                <div class="field"><label>${esc(t('selfie', 'Selfie holding your NIC'))}</label><input type="file" accept="image/*" capture="user" id="selfie"></div>
-            </div>
-            <button class="btn btn-maroon mt-2" id="send-verify" ${profile ? '' : 'disabled'}>${esc(t('submit_verify', 'Submit for verification'))}</button>
-            ${profile ? '' : `<p class="muted mt-1">${esc(t('verify_need_profile', 'Create your profile first.'))}</p>`}`;
+        return `<h3>${esc(t('id_check', 'ID verification'))}</h3>${idSection()}
+            <h3 class="mt-3">${esc(t('job_check', 'Job verification'))} <span class="muted" style="font-size:.8rem">(${esc(t('optional', 'optional'))})</span></h3>${jobSection()}`;
     },
     async settings() {
         return `
@@ -171,6 +169,57 @@ const tabs = {
                 <button class="btn btn-sm btn-danger" id="delete-btn">${esc(t('delete', 'Delete'))}</button></div>`;
     }
 };
+
+function idSection() {
+    if (profile?.verified) return `<div class="alert alert-ok">✓ ${esc(t('verified_ok', 'Your identity is verified. A blue “ID verified” badge appears on your profile.'))}</div>`;
+    if (verification?.status === 'pending') return `<div class="alert alert-info">${esc(t('verify_pending', 'Your documents were received and are being checked. This usually takes 1–2 days.'))}</div>`;
+    const rejected = verification?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('verify_rejected', 'We could not verify the last upload.'))} ${esc(verification.note || '')}</div>` : '';
+    return `${rejected}
+        <p>${esc(t('verify_why', 'Verified profiles get up to 3× more responses. Upload a photo of your NIC (front) and a selfie holding the NIC. We only use these to confirm your identity and delete the images after checking.'))}</p>
+        <div class="form-grid mt-2">
+            <div class="field"><label>${esc(t('nic_front', 'NIC – front side'))}</label><input type="file" accept="image/*" id="nic"></div>
+            <div class="field"><label>${esc(t('selfie', 'Selfie holding your NIC'))}</label><input type="file" accept="image/*" capture="user" id="selfie"></div>
+        </div>
+        <button class="btn btn-maroon mt-2" id="send-verify" ${profile ? '' : 'disabled'}>${esc(t('submit_verify', 'Submit for verification'))}</button>
+        ${profile ? '' : `<p class="muted mt-1">${esc(t('verify_need_profile', 'Create your profile first.'))}</p>`}`;
+}
+
+function jobSection() {
+    if (!profile) return `<p class="muted">${esc(t('verify_need_profile', 'Create your profile first.'))}</p>`;
+    if (profile.jobVerified) {
+        return `<div class="alert alert-ok">✓ ${esc(t('job_ok', 'Your job is verified. A “Job verified” badge shows on your profile'))}${profile.jobWorkplace ? ` (${esc(profile.jobWorkplace)})` : ''}.</div>`;
+    }
+    if (jobCheck?.status === 'pending') return `<div class="alert alert-info">${esc(t('job_pending', 'Your job details were received and are being checked, usually within 1–2 days.'))}</div>`;
+    const rejected = jobCheck?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('job_rejected', 'We could not verify your job last time.'))} ${esc(jobCheck.note || '')}</div>` : '';
+    const sentTo = pendingWorkEmail();
+    return `${rejected}
+        <p>${esc(t('job_why', 'A “Job verified” badge shows families your job is genuine, and verified profiles are listed first among similar profiles. Other members only see the badge — never your documents or numbers. Choose one way:'))}</p>
+
+        <div class="card mt-2" style="box-shadow:none">
+            <strong>1. ${esc(t('job_m1', 'Work email — instant'))}</strong>
+            <p class="muted">${esc(t('job_m1_note', 'If you have an email at your workplace (e.g. name@company.lk, name@health.gov.lk), we send a link to it. Click it and you are verified immediately. Personal emails like Gmail or Yahoo are not accepted. Only the workplace name (e.g. “company.lk”) is shown.'))}</p>
+            ${sentTo ? `<div class="alert alert-info">${esc(t('job_m1_sent', 'Link sent to'))} <b>${esc(sentTo)}</b>. ${esc(t('job_m1_check', 'Open that inbox (check Spam too) and click the link.'))}</div>` : ''}
+            <div class="row"><div class="field" style="flex:1;min-width:220px"><input id="work-email" type="email" placeholder="name@yourworkplace.lk" autocomplete="off"></div>
+                <button class="btn btn-maroon" id="send-work-link">${esc(t('job_send_link', 'Send link'))}</button></div>
+        </div>
+
+        <div class="card mt-2" style="box-shadow:none">
+            <strong>2. ${esc(t('job_m2', 'Professional registration number'))}</strong>
+            <p class="muted">${esc(t('job_m2_note', 'For doctors, engineers, lawyers and accountants. We check the number on the official public register, then delete it. No documents needed.'))}</p>
+            <div class="form-grid">
+                <div class="field"><select id="job-body">${JOB_BODIES.map(b => `<option value="${b.v}">${esc(b.en)}</option>`).join('')}</select></div>
+                <div class="field"><input id="job-number" placeholder="${esc(t('job_reg_no', 'Registration number'))}" maxlength="40"></div>
+            </div>
+            <button class="btn btn-maroon mt-1" id="send-job-number">${esc(t('submit', 'Submit'))}</button>
+        </div>
+
+        <div class="card mt-2" style="box-shadow:none">
+            <strong>3. ${esc(t('job_m3', 'Staff ID card or business registration'))}</strong>
+            <p class="muted">${esc(t('job_m3_note', 'A photo of your staff ID card, or business registration (BR) if you run a business. Please cover your ID number, address and any salary details first — we only need your name, workplace and job title. The photo is deleted after checking.'))}</p>
+            <div class="field"><input type="file" accept="image/*" id="job-doc"></div>
+            <button class="btn btn-maroon mt-1" id="send-job-doc">${esc(t('submit', 'Submit'))}</button>
+        </div>`;
+}
 
 function empty(html) { return `<div class="empty"><p>${html}</p></div>`; }
 
@@ -211,6 +260,37 @@ $('#tab-body').addEventListener('click', async e => {
             const [a, s] = await Promise.all([compressImage(nic, { maxSide: 1100, maxBytes: 300_000 }), compressImage(selfie, { maxSide: 900, maxBytes: 250_000 })]);
             await setDoc(doc(db, 'verifications', uid), { uid, nic: a, selfie: s, status: 'pending', createdAt: serverTimestamp() });
             toast(t('verify_sent', 'Submitted. We will check it soon.'));
+            await refresh();
+        } else if (b.id === 'send-work-link') {
+            const email = $('#work-email').value.trim().toLowerCase();
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast(t('err_email', 'Please enter a valid email address.'), true); return; }
+            if (isFreeMail(email)) { toast(t('job_free_mail', 'Please use your workplace email — personal emails like Gmail or Yahoo cannot prove where you work.'), true); return; }
+            b.disabled = true;
+            try {
+                await sendWorkEmailLink(uid, email);
+                toast(t('job_link_sent', 'Link sent. Open your work inbox and click it.'));
+                await show('verify');
+            } catch (err) {
+                b.disabled = false;
+                if (err.code === 'auth/operation-not-allowed') toast(t('job_link_off', 'Work-email verification is not switched on yet. Please use another method for now.'), true);
+                else throw err;
+            }
+        } else if (b.id === 'send-job-number') {
+            const number = $('#job-number').value.trim();
+            if (number.length < 3) { toast(t('job_need_number', 'Please enter your registration number.'), true); return; }
+            b.disabled = true;
+            await setDoc(doc(db, 'jobChecks', uid), {
+                uid, method: 'register', body: $('#job-body').value, number, status: 'pending', createdAt: serverTimestamp()
+            });
+            toast(t('job_sent', 'Submitted. We will check it soon.'));
+            await refresh();
+        } else if (b.id === 'send-job-doc') {
+            const file = $('#job-doc').files[0];
+            if (!file) { toast(t('job_need_doc', 'Please choose a photo.'), true); return; }
+            b.disabled = true;
+            const image = await compressImage(file, { maxSide: 1200, maxBytes: 350_000 });
+            await setDoc(doc(db, 'jobChecks', uid), { uid, method: 'document', image, status: 'pending', createdAt: serverTimestamp() });
+            toast(t('job_sent', 'Submitted. We will check it soon.'));
             await refresh();
         } else if (b.id === 'lang-toggle') {
             setLang(getLang() === 'si' ? 'en' : 'si');
@@ -260,6 +340,11 @@ function confirmDelete() {
             for (let i = 0; i < 3; i++) await deleteDoc(doc(db, 'photos', `${uid}_${i}`)).catch(() => {});
             for (const i of [...received, ...sent]) await deleteDoc(doc(db, 'interests', i.id)).catch(() => {});
             await deleteDoc(doc(db, 'verifications', uid)).catch(() => {});
+            await deleteDoc(doc(db, 'jobChecks', uid)).catch(() => {});
+            await deleteDoc(doc(db, 'jobEmailRequests', uid)).catch(() => {});
+            const je = await getDoc(doc(db, 'jobEmails', uid)).catch(() => null);
+            if (je?.exists()) await deleteDoc(doc(db, 'jobEmailIndex', je.data().email)).catch(() => {});
+            await deleteDoc(doc(db, 'jobEmails', uid)).catch(() => {});
             await deleteDoc(doc(db, 'contacts', uid)).catch(() => {});
             await deleteDoc(doc(db, 'profiles', uid)).catch(() => {});
             await deleteDoc(doc(db, 'users', uid)).catch(() => {});

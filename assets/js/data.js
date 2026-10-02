@@ -75,6 +75,19 @@ export function employmentRank(v) {
     return EMPLOYMENT.find(e => e.v === v)?.rank ?? 0;
 }
 
+// Professional bodies with public registers, used for job verification by registration number.
+// The admin checks the number on the body's own website.
+export const JOB_BODIES = [
+    { v: 'slmc', en: 'Sri Lanka Medical Council (doctors)', url: 'https://slmc.gov.lk' },
+    { v: 'ecsl', en: 'Engineering Council Sri Lanka', url: 'https://ecsl.lk' },
+    { v: 'iesl', en: 'Institution of Engineers Sri Lanka', url: 'https://iesl.lk' },
+    { v: 'basl', en: 'Attorney-at-Law (Supreme Court / BASL)', url: 'https://basl.lk' },
+    { v: 'casl', en: 'CA Sri Lanka (chartered accountants)', url: 'https://www.casrilanka.com' },
+    { v: 'cima', en: 'CIMA', url: 'https://www.cimaglobal.com' },
+    { v: 'acca', en: 'ACCA', url: 'https://www.accaglobal.com' },
+    { v: 'other', en: 'Other professional body', url: '' }
+];
+
 export const MOTHER_TONGUE = [
     opt('Sinhala', 'Sinhala', 'සිංහල'),
     opt('Tamil', 'Tamil', 'දෙමළ'),
