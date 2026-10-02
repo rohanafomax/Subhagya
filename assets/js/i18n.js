@@ -119,5 +119,12 @@ export const SI = {
     match_tip: 'ගැලපීම % බැලීමට ඔබේ යෝජනාව සහ සහකරු අපේක්ෂා එක් කරන්න.',
     f_motherTongue: 'මව් භාෂාව', f_residence: 'පදිංචිය', f_school: 'පාසල', f_position: 'තනතුර',
     f_familyHome: 'පවුලේ පදිංචිය', f_rasi: 'රාශිය', f_prefResidence: 'පදිංචිය', f_prefProfession: 'කැමති රැකියාව',
-    st_horo_opt: 'කේන්දරය (අත්‍යවශ්‍ය නොවේ)'
+    st_horo_opt: 'කේන්දරය (අත්‍යවශ්‍ය නොවේ)',
+
+    // password / email
+    change_pw: 'මුරපදය වෙනස් කරන්න', change_pw_note: 'වෙනත් කිසිම තැනක භාවිත නොකරන මුරපදයක් යොදන්න.',
+    change: 'වෙනස් කරන්න', current_pw: 'වත්මන් මුරපදය', new_pw: 'නව මුරපදය', new_pw2: 'නව මුරපදය නැවත',
+    save: 'සුරකින්න', pw_mismatch: 'නව මුරපද දෙක නොගැලපේ.', pw_same: 'වත්මන් මුරපදයට වඩා වෙනස් එකක් තෝරන්න.',
+    pw_changed: 'මුරපදය වෙනස් කළා.',
+    check_spam: 'ඉන්බොක්ස් එකේ නැද්ද? Spam / Junk ෆෝල්ඩරය බලන්න — Yahoo සහ Hotmail බොහෝ විට එය එහි දමයි. "Not spam" ලෙස සලකුණු කරන්න.'
 };

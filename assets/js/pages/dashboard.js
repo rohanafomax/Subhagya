@@ -1,7 +1,9 @@
 import {
     doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { sendEmailVerification, deleteUser } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+import {
+    sendEmailVerification, deleteUser, EmailAuthProvider, reauthenticateWithCredential, updatePassword
+} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
     db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, fmtDate, toDate, refCode,
     friendlyError, applyI18n, modal, setLang, getLang, logout
@@ -51,6 +53,7 @@ function renderAlerts() {
     if (params.get('saved')) a.push(`<div class="alert alert-ok">${esc(t('saved_review', 'Thank you! Your profile was submitted. Our team reviews new profiles, usually within 24 hours.'))}</div>`);
     if (!me.user.emailVerified) {
         a.push(`<div class="alert alert-info">${esc(t('verify_email', 'Please verify your email address. We sent a link to'))} <b>${esc(me.user.email)}</b>.
+            <div class="mt-1">${esc(t('check_spam', 'Not in your inbox? Check the Spam / Junk folder — Yahoo and Hotmail often put it there. Mark it “Not spam”.'))}</div>
             <div class="row mt-1"><button class="btn btn-sm btn-maroon" id="resend">${esc(t('resend', 'Resend email'))}</button>
             <button class="btn btn-sm btn-ghost" id="recheck">${esc(t('verified_done', "I've verified — continue"))}</button></div></div>`);
     } else if (!profile) {
@@ -156,6 +159,9 @@ const tabs = {
                 <button class="btn btn-sm btn-ghost" id="lang-toggle">${getLang() === 'si' ? 'English' : 'සිංහල'}</button></div>
             <div class="list-row"><div class="info"><strong>${esc(t('membership', 'Membership'))}</strong><div class="muted">${premium ? esc(t('premium', 'Premium')) + ' · ' + fmtDate(me.account.premiumUntil) : esc(t('free_plan', 'Free membership'))}</div></div>
                 <a class="btn btn-sm btn-gold" href="pricing.html">${esc(premium ? t('extend', 'Extend') : t('upgrade', 'Upgrade to Premium'))}</a></div>
+            ${me.user.providerData.some(p => p.providerId === 'password') ? `
+            <div class="list-row"><div class="info"><strong>${esc(t('change_pw', 'Change password'))}</strong><div class="muted">${esc(t('change_pw_note', 'Use a password you do not use anywhere else.'))}</div></div>
+                <button class="btn btn-sm btn-ghost" id="pw-btn">${esc(t('change', 'Change'))}</button></div>` : ''}
             <div class="list-row"><div class="info"><strong>${esc(t('nav_logout', 'Log out'))}</strong></div>
                 <button class="btn btn-sm btn-ghost" id="logout-btn">${esc(t('nav_logout', 'Log out'))}</button></div>
             <div class="list-row"><div class="info"><strong>${esc(t('delete_account', 'Delete my account'))}</strong><div class="muted">${esc(t('delete_note', 'Permanently removes your profile, photos and contact details.'))}</div></div>
@@ -208,9 +214,36 @@ $('#tab-body').addEventListener('click', async e => {
             logout();
         } else if (b.id === 'delete-btn') {
             confirmDelete();
+        } else if (b.id === 'pw-btn') {
+            changePassword();
         }
     } catch (err) { toast(friendlyError(err), true); b.disabled = false; }
 });
+
+function changePassword() {
+    const m = modal(`<h3>${esc(t('change_pw', 'Change password'))}</h3>
+        <div class="field"><label>${esc(t('current_pw', 'Current password'))}</label><input type="password" id="pw-old" autocomplete="current-password"></div>
+        <div class="field mt-1"><label>${esc(t('new_pw', 'New password'))}</label><input type="password" id="pw-new" autocomplete="new-password" minlength="8"></div>
+        <div class="field mt-1"><label>${esc(t('new_pw2', 'New password again'))}</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+        <p class="muted mt-1">${esc(t('pw_hint', 'At least 8 characters.'))}</p>
+        <div class="row mt-2"><button class="btn btn-ghost" data-close>${esc(t('cancel', 'Cancel'))}</button><span class="spacer"></span><button class="btn btn-maroon" id="pw-save">${esc(t('save', 'Save'))}</button></div>`);
+    m.querySelector('#pw-save').addEventListener('click', async e => {
+        const oldPw = m.querySelector('#pw-old').value, pw = m.querySelector('#pw-new').value;
+        if (pw.length < 8) { toast(t('err_weak', 'Password must be at least 8 characters.'), true); return; }
+        if (pw !== m.querySelector('#pw-new2').value) { toast(t('pw_mismatch', 'The new passwords do not match.'), true); return; }
+        if (pw === oldPw) { toast(t('pw_same', 'Choose a different password from your current one.'), true); return; }
+        e.target.disabled = true;
+        try {
+            await reauthenticateWithCredential(me.user, EmailAuthProvider.credential(me.user.email, oldPw));
+            await updatePassword(me.user, pw);
+            m.remove();
+            toast(t('pw_changed', 'Password changed.'));
+        } catch (err) {
+            toast(friendlyError(err), true);
+            e.target.disabled = false;
+        }
+    });
+}
 
 function confirmDelete() {
     const m = modal(`<h3>${esc(t('delete_account', 'Delete my account'))}</h3>
