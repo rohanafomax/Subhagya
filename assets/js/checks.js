@@ -94,6 +94,9 @@ export function consistencyProblems(p, age) {
         if (age < 22 && ['master', 'doctorate'].includes(p.education)) out.push(`age ${age} with ${p.education === 'doctorate' ? 'a doctorate' : "a master's degree"}`);
         if (age < 21 && ['divorced', 'widowed'].includes(p.marital)) out.push(`age ${age} and ${p.marital}`);
         if (age > 70) out.push(`age ${age} — check the date of birth`);
+        if (age < 28 && p.occupation === 'specialist') out.push(`specialist doctor at age ${age}`);
+        if (age < 24 && ['head'].includes(p.seniority)) out.push(`head / director at age ${age}`);
+        if (age < 23 && ['500', '1m'].includes(p.incomeRange)) out.push(`very high income at age ${age}`);
     }
     if (p.height && (p.height < 135 || p.height > 210)) out.push(`unusual height ${p.height} cm`);
     if (p.residence === 'abroad' && /^sri\s*lanka$/i.test(String(p.country || '').trim())) out.push('says “overseas” but country is Sri Lanka');

@@ -3,7 +3,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
 import { contactInfoIn, PUBLIC_TEXT_FIELDS, isDisposableEmail, nameProblems, consistencyProblems } from '../checks.js';
-import { JOB_BODIES } from '../data.js';
+import { JOB_BODIES, occupationLabel, tierOf, isBusiness } from '../data.js';
 
 await requireAuth({ admin: true });
 
@@ -135,7 +135,8 @@ function profileFacts(p, c) {
         ${kv('Religion', label('religion', p.religion))} ${kv('Ethnicity', label('ethnicity', p.ethnicity))}
         ${kv('Location', [p.city, label('district', p.district), p.country].filter(Boolean).join(', '))}
         ${kv('Education', [label('education', p.education), p.educationDetail].filter(Boolean).join(' – '))}
-        ${kv('Profession', p.profession)} ${kv('Employment', p.employment && label('employment', p.employment))}
+        ${kv('Occupation', occupationLabel(p))} ${kv('Tier', 'Tier ' + tierOf(p))} ${kv('Seniority', p.seniority && label('seniority', p.seniority))}
+        ${kv('Profession', p.profession)} ${kv('Income', p.incomeRange && label('income', p.incomeRange))}
         ${kv('Contact', c ? `${c.contactName} (${c.contactRelation || '—'}) ${c.phone}` : '')}
         <p class="mt-1" style="white-space:pre-line;font-size:.9rem">${esc(p.about)}</p>`;
 }
@@ -207,7 +208,7 @@ const tabs = {
             return `<div class="review">
                 <div class="pics">${jc.method === 'document' && jc.image ? img(jc.image) : ''}</div>
                 <div>${p ? `<h3>${esc(p.firstName)}, ${ageFrom(p.dob)} <span class="muted">${refCode(jc.uid)}</span></h3>
-                        ${kv('Profession', p.profession)} ${kv('Employment', p.employment && label('employment', p.employment))} ${kv('Sector', p.employer)}`
+                        ${kv('Occupation', occupationLabel(p))} ${kv('Profession', p.profession)} ${kv('Sector', p.employer)}`
                     : '<p>Profile missing</p>'}
                     ${evidence}
                     <p class="muted">The number or photo is deleted when you decide.</p>
@@ -407,11 +408,10 @@ $('#tab-body').addEventListener('click', async e => {
             const jc = data.jobChecks.find(x => x.uid === d.jobOk);
             const body = JOB_BODIES.find(b => b.v === jc?.body);
             const prof = await get(['profiles', d.jobOk]);
-            const isBusiness = ['business', 'self'].includes(prof?.employment);
             await updateDoc(doc(db, 'profiles', d.jobOk), {
                 jobVerified: true, jobVia: jc?.method || 'document',
                 jobWorkplace: jc?.method === 'register' && body && !['other', 'overseas'].includes(body.v) ? body.en.split(' (')[0]
-                    : isBusiness ? 'Registered business' : ''
+                    : isBusiness(prof) ? 'Registered business' : ''
             });
             await updateDoc(doc(db, 'jobChecks', d.jobOk), { status: 'approved', number: deleteField(), image: deleteField(), reviewedAt: serverTimestamp() });
             toast('Marked as job verified');

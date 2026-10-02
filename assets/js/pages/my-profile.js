@@ -23,8 +23,9 @@ const STEPS = [
             { id: 'ethnicity', en: 'Ethnicity', type: 'select', list: 'ethnicity', req: 1 },
             { id: 'motherTongue', en: 'Mother tongue', type: 'select', list: 'motherTongue', req: 1 },
             { id: 'caste', en: 'Caste (optional)', type: 'text' },
-            { id: 'district', en: 'District', type: 'select', list: 'district', req: 1 },
+            { id: 'district', en: 'Home district (family home)', type: 'select', list: 'district', req: 1 },
             { id: 'city', en: 'Home town / city', type: 'text', req: 1 },
+            { id: 'liveDistrict', en: 'District you live / work in now', type: 'select', list: 'district', hint: 'If different from your home district, e.g. working in Colombo. Leave as “—” if living overseas.' },
             { id: 'country', en: 'Country you live in now', type: 'select', list: 'country', req: 1, def: 'Sri Lanka' },
             { id: 'countryOther', en: 'Country name (if “Other”)', type: 'text' },
             { id: 'residencyStatus', en: 'Residency status (if living overseas)', type: 'select', list: 'residencyStatus', hint: 'Families often ask this — e.g. Permanent resident, Work visa.' }
@@ -34,12 +35,13 @@ const STEPS = [
         key: 'st_career', en: 'Education & career', fields: [
             { id: 'education', en: 'Highest education', type: 'select', list: 'education', req: 1 },
             { id: 'educationDetail', en: 'Field / institute', type: 'text', hint: 'e.g. BSc Engineering, University of Moratuwa' },
-            { id: 'employment', en: 'Employment type', type: 'select', list: 'employment', req: 1, hint: 'Business owners and self-employed: verify your business registration later (My Account → Verification) to be listed with professionals.' },
+            { id: 'occupation', en: 'Occupation', type: 'select', list: 'occupation', req: 1, hint: 'Choose the closest. Working abroad? Choose your job — your country is recorded separately. Business owners and self-employed: verify your business registration later (My Account → Verification) to be listed higher.' },
+            { id: 'seniority', en: 'Seniority', type: 'select', list: 'seniority' },
             { id: 'school', en: 'School', type: 'text' },
             { id: 'profession', en: 'Profession', type: 'text', req: 1 },
             { id: 'position', en: 'Job position', type: 'text', hint: 'e.g. Senior Engineer, Teacher, Manager' },
             { id: 'employer', en: 'Working at (sector)', type: 'text', hint: 'e.g. Government, private bank, own business' },
-            { id: 'income', en: 'Monthly income (optional)', type: 'text', hint: 'e.g. LKR 150,000 – 200,000' }
+            { id: 'incomeRange', en: 'Monthly income', type: 'select', list: 'income', def: 'na', hint: 'Optional — choose “Prefer not to say” if you wish. Living abroad? Convert roughly to LKR.' }
         ]
     },
     {
@@ -71,8 +73,12 @@ const STEPS = [
             { id: 'prefAgeMin', en: 'Age from', type: 'number', min: 18, max: 80 },
             { id: 'prefAgeMax', en: 'Age to', type: 'number', min: 18, max: 80 },
             { id: 'prefReligion', en: 'Religion', type: 'select', list: 'religion', any: 'Any religion' },
-            { id: 'prefDistrict', en: 'District', type: 'select', list: 'district', any: 'Any district' },
+            { id: 'prefDistrict', en: 'Preferred area (district)', type: 'select', list: 'district', any: 'Any district' },
+            { id: 'prefDistance', en: 'How far from that area is OK?', type: 'select', list: 'prefDistance', def: '50', hint: 'Families living nearby in other districts are included, e.g. Gampaha for Colombo.' },
             { id: 'prefEducation', en: 'Minimum education', type: 'select', list: 'education', any: 'Any' },
+            { id: 'prefOccupationGroup', en: 'Preferred occupation area', type: 'select', list: 'occGroup', any: 'Any' },
+            { id: 'prefSeniority', en: 'Minimum seniority', type: 'select', list: 'seniority', any: 'Any' },
+            { id: 'prefIncome', en: 'Minimum monthly income', type: 'select', list: 'incomeMin', any: 'Any' },
             { id: 'prefResidence', en: 'Living in', type: 'select', list: 'residence', any: 'Sri Lanka or overseas' },
             { id: 'prefProfession', en: 'Preferred profession', type: 'text', hint: 'e.g. Professional, government service — or leave blank' },
             { id: 'prefNotes', en: 'What are you looking for?', type: 'textarea', full: 1 }
@@ -220,6 +226,7 @@ async function save() {
     // "Sri Lanka or overseas" is worked out from the country, so search and match % stay correct
     pub.residence = pub.country && pub.country !== 'Sri Lanka' ? 'abroad' : 'lk';
     if (pub.residence === 'lk') pub.residencyStatus = '';
+    if (pub.residence === 'abroad' || pub.liveDistrict === pub.district) pub.liveDistrict = '';
     const profile = {
         ...pub,
         uid,

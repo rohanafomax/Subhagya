@@ -9,7 +9,7 @@ import {
     friendlyError, applyI18n, modal, setLang, getLang, logout, markMatchesSeen, updateBadges
 } from '../app.js';
 import { compressImage } from '../image.js';
-import { JOB_BODIES } from '../data.js';
+import { JOB_BODIES, isBusiness } from '../data.js';
 import { isFreeMail } from '../checks.js';
 import { sendWorkEmailLink, pendingWorkEmail, syncJobBadge } from '../job.js';
 
@@ -192,7 +192,7 @@ function jobSection() {
     if (jobCheck?.status === 'pending') return `<div class="alert alert-info">${esc(t('job_pending', 'Your job details were received and are being checked, usually within 1–2 days.'))}</div>`;
     const rejected = jobCheck?.status === 'rejected' ? `<div class="alert alert-err">${esc(t('job_rejected', 'We could not verify your job last time.'))} ${esc(jobCheck.note || '')}</div>` : '';
     const sentTo = pendingWorkEmail();
-    const business = ['business', 'self'].includes(profile.employment)
+    const business = isBusiness(profile)
         ? `<div class="alert alert-ok">${esc(t('job_business', 'Business owners and self-employed: verify your business registration (BR) using option 3 below, and your profile will be listed together with professionals in search.'))}</div>`
         : '';
     return `${rejected}${business}

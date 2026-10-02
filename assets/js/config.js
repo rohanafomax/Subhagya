@@ -28,6 +28,14 @@ export const PLANS = [
 // 3. How many interests a free member may send per calendar month.
 export const FREE_INTEREST_LIMIT = 5;
 
+// 3b. Preference-match weights (percent). Change freely; they don't need to add up to 100.
+//     These are illustrative weights for organising search, not a measure of relationship success.
+export const MATCH_WEIGHTS = {
+    career: 40,      // occupation area, education, seniority
+    financial: 30,   // income range
+    lifestyle: 30    // age, religion, location, overseas / relocation
+};
+
 // 4. Bank account shown on the payment page.
 export const BANK = {
     bank: 'Your Bank Name',

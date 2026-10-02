@@ -6,8 +6,8 @@ import {
     friendlyError, applyI18n, modal, fillSelect, getLang
 } from '../app.js';
 import { FREE_INTEREST_LIMIT } from '../config.js';
-import { employmentShort, countryName } from '../data.js';
-import { matchScore } from '../match.js';
+import { countryName, occupationLabel, profilesKm } from '../data.js';
+import { matchDetails } from '../match.js';
 import { jobBadgeText } from '../job.js';
 
 const id = new URLSearchParams(location.search).get('id');
@@ -55,7 +55,10 @@ async function render() {
     const isPrem = p.premium && toDate(p.premiumUntil) > new Date();
     const blocked = (me.account.blocked || []).includes(id);
     const shortlisted = (me.account.shortlist || []).includes(id);
-    const score = own ? null : matchScore(myProfile, p);
+    const match = own ? null : matchDetails(myProfile, p);
+    const score = match?.score ?? null;
+    const PART_NAMES = { career: t('mp_career', 'Career'), financial: t('mp_financial', 'Financial'), lifestyle: t('mp_lifestyle', 'Lifestyle & location') };
+    const breakdown = match ? Object.entries(match.parts).map(([k, v]) => `${PART_NAMES[k]} ${v}%`).join(' · ') : '';
 
     view.innerHTML = `
     ${own ? `<div class="alert alert-info">${esc(t('own_preview', 'This is how other members see your profile.'))} <a href="my-profile.html">${esc(t('edit_profile', 'Edit profile'))}</a></div>` : ''}
@@ -78,6 +81,7 @@ async function render() {
                     ${score != null ? `<span class="badge badge-approved" title="${esc(t('match_hint', 'How well you fit each other’s stated preferences'))}">${score}% ${esc(t('pref_match_long', 'preference match'))}</span>` : ''}
                 </div>
                 <p class="muted">${refCode(id)} · ${esc(t('created_by', 'Profile created by'))}: ${esc(label('createdFor', p.createdFor))} · ${esc(t('updated', 'Updated'))} ${fmtDate(p.updatedAt)}</p>
+                ${breakdown ? `<p class="muted" style="font-size:.82rem">${esc(t('match_breakdown', 'Preference match'))}: ${esc(breakdown)} — ${esc(t('match_disclaimer', 'based only on the preferences you both entered; a guide, not a prediction.'))}</p>` : ''}
                 <p class="mt-2" style="white-space:pre-line">${esc(p.about)}</p>
             </div>
 
@@ -92,7 +96,10 @@ async function render() {
                     ${fact('f_ethnicity', 'Ethnicity', label('ethnicity', p.ethnicity))}
                     ${fact('f_motherTongue', 'Mother tongue', p.motherTongue && label('motherTongue', p.motherTongue))}
                     ${fact('f_caste', 'Caste', p.caste)}
-                    ${fact('f_district', 'District', label('district', p.district))}
+                    ${fact('f_district', 'Home district', label('district', p.district))}
+                    ${fact('f_liveDistrict', 'Lives / works in', p.liveDistrict && label('district', p.liveDistrict))}
+                    ${!own && p.residence !== 'abroad' && myProfile && profilesKm(myProfile, p) != null
+                        ? fact('f_distance', 'Distance from you', profilesKm(myProfile, p) === 0 ? t('same_area', 'your area') : `~${profilesKm(myProfile, p)} km`) : ''}
                     ${fact('f_city', 'Home town', p.city)}
                     ${fact('f_country', 'Lives in', countryName(p, getLang()))}
                     ${fact('f_residencyStatus', 'Residency status', p.residence === 'abroad' && p.residencyStatus && label('residencyStatus', p.residencyStatus))}
@@ -108,9 +115,11 @@ async function render() {
                     ${fact('f_school', 'School', p.school)}
                     ${fact('f_profession', 'Profession', p.profession)}
                     ${fact('f_position', 'Job position', p.position)}
-                    ${fact('f_employment', 'Employment type', p.employment && employmentShort(p.employment, getLang()))}
+                    ${fact('f_occupation', 'Occupation', occupationLabel(p, getLang()))}
+                    ${fact('f_seniority', 'Seniority', p.seniority && label('seniority', p.seniority))}
+                    ${fact('f_sector', 'Works in', p.residence === 'abroad' ? `${t('overseas', 'Overseas')} – ${countryName(p, getLang())}` : t('srilanka', 'Sri Lanka'))}
                     ${fact('f_employer', 'Sector', p.employer)}
-                    ${fact('f_income', 'Monthly income', p.income)}
+                    ${fact('f_incomeRange', 'Monthly income', p.incomeRange && p.incomeRange !== 'na' ? label('income', p.incomeRange) : p.income)}
                 </dl>
             </div>
 
@@ -143,7 +152,9 @@ async function render() {
                 <dl class="facts">
                     ${fact('f_prefAge', 'Age', p.prefAgeMin || p.prefAgeMax ? `${p.prefAgeMin || 18} – ${p.prefAgeMax || '…'}` : '')}
                     ${fact('f_prefReligion', 'Religion', p.prefReligion ? label('religion', p.prefReligion) : t('any', 'Any'))}
-                    ${fact('f_prefDistrict', 'District', p.prefDistrict ? label('district', p.prefDistrict) : t('any', 'Any'))}
+                    ${fact('f_prefDistrict', 'Area', p.prefDistrict
+                        ? `${label('district', p.prefDistrict)}${p.prefDistance && p.prefDistance !== 'same' ? ' — ' + label('prefDistance', p.prefDistance).toLowerCase() : ''}`
+                        : t('any', 'Any'))}
                     ${fact('f_prefEducation', 'Minimum education', p.prefEducation ? label('education', p.prefEducation) : t('any', 'Any'))}
                     ${fact('f_prefResidence', 'Living in', p.prefResidence ? label('residence', p.prefResidence) : t('any', 'Any'))}
                     ${fact('f_prefProfession', 'Profession', p.prefProfession)}

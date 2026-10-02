@@ -2,7 +2,10 @@ import {
     doc, getDoc, getDocs, collection, query, where, limit
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db, configured, whenReady, me, t, $, esc, label, fillSelect, ageFrom, heightLabel, refCode, toDate, friendlyError, applyI18n, getLang } from '../app.js';
-import { EDUCATION, employmentRank, employmentShort, countryName } from '../data.js';
+import {
+    EDUCATION, countryName, tierOf, occupationLabel, occupationOf, isNotWorking, incomeIndex, seniorityIndex,
+    areasOf, profilesKm, sameProvince
+} from '../data.js';
 import { matchScore } from '../match.js';
 
 const PAGE = 24;
@@ -14,7 +17,8 @@ $('#q-gender').options[0].remove();
 for (const [id, list, any] of [
     ['religion', 'religion', 'Any religion'], ['ethnicity', 'ethnicity', 'Any'], ['motherTongue', 'motherTongue', 'Any'],
     ['district', 'district', 'Any district'], ['residence', 'residence', 'Sri Lanka or overseas'], ['country', 'country', 'Any country'],
-    ['marital', 'marital', 'Any'], ['education', 'education', 'Any']
+    ['marital', 'marital', 'Any'], ['education', 'education', 'Any'], ['occGroup', 'occGroup', 'Any'],
+    ['seniority', 'seniority', 'Any'], ['income', 'incomeMin', 'Any']
 ]) fillSelect($('#q-' + id), list, { any: t('any', any) });
 
 // Prefill from URL (home page search)
@@ -42,9 +46,9 @@ function card(p) {
         <div class="p-body">
             <h3>${esc(p.firstName)}, ${age}</h3>
             <div class="meta">${[label('religion', p.religion), label('ethnicity', p.ethnicity)].map(esc).join(' · ')}</div>
-            <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.residence === 'abroad' ? ' · ' + esc(countryName(p, getLang())) + (p.residencyStatus ? ` (${esc(label('residencyStatus', p.residencyStatus))})` : '') : ''}</div>
-            <div class="meta">${esc(p.profession)} · ${esc(label('education', p.education))}</div>
-            ${p.employment ? `<div class="meta">${esc(employmentShort(p.employment, getLang()))}</div>` : ''}
+            <div class="meta">${esc(p.city || '')}${p.city ? ', ' : ''}${esc(label('district', p.district))}${p.liveDistrict ? ` (${esc(t('lives_in', 'lives in'))} ${esc(label('district', p.liveDistrict))})` : ''}${p._km != null ? ` · ${p._km === 0 ? esc(t('same_area', 'your area')) : '~' + p._km + ' km'}` : ''}${p.residence === 'abroad' ? ' · ' + esc(countryName(p, getLang())) + (p.residencyStatus ? ` (${esc(label('residencyStatus', p.residencyStatus))})` : '') : ''}</div>
+            <div class="meta">${esc(occupationLabel(p, getLang()) || p.profession)}${p.seniority ? ' · ' + esc(label('seniority', p.seniority)) : ''}</div>
+            <div class="meta">${esc(label('education', p.education))}${p.profession && occupationLabel(p) ? ' · ' + esc(p.profession) : ''}</div>
             <div class="meta">${heightLabel(p.height).split(' (')[0]} · ${esc(label('marital', p.marital))}</div>
             <div class="row" style="margin-top:.5rem;justify-content:space-between">
                 <span class="ref">${refCode(p.uid)}</span>
@@ -75,6 +79,15 @@ function renderMore() {
     $('#more').hidden = shown >= all.length;
 }
 
+/** "Distance from my area" filter — uses home and current districts of both people. */
+function nearEnough(p, near) {
+    if (!near) return true;
+    if (!myProfile || !areasOf(myProfile).length) return true;      // nothing to measure from
+    if (near === 'province') return areasOf(myProfile).some(a => areasOf(p).some(b => sameProvince(a, b)));
+    const km = profilesKm(myProfile, p);
+    return km != null && km <= Number(near);
+}
+
 async function search() {
     const gender = $('#q-gender').value;
     const res = $('#results');
@@ -99,30 +112,39 @@ async function search() {
                 && (!f('religion') || p.religion === f('religion'))
                 && (!f('ethnicity') || p.ethnicity === f('ethnicity'))
                 && (!f('motherTongue') || p.motherTongue === f('motherTongue'))
-                && (!f('district') || p.district === f('district'))
+                && (!f('district') || areasOf(p).includes(f('district')))
+                && nearEnough(p, f('near'))
                 && (!f('residence') || (p.residence || 'lk') === f('residence'))
                 && (!f('country') || p.country === f('country'))
                 && (!f('relocate') || ['either', 'discuss', f('relocate')].includes(p.relocate))
                 && (!f('marital') || p.marital === f('marital'))
                 && (!f('education') || eduRank(p.education) >= eduRank(f('education')))
+                && (!f('occGroup') || occupationOf(p)?.group === f('occGroup'))
+                && (!f('seniority') || seniorityIndex(p.seniority) >= seniorityIndex(f('seniority')))
+                && (!f('income') || incomeIndex(p.incomeRange) >= incomeIndex(f('income')))
                 && (!$('#q-verified').checked || p.verified)
                 && (!$('#q-shortlist').checked || shortlist.includes(p.uid))
-                && (!$('#q-working').checked || p.employment !== 'notworking')
+                && (!$('#q-working').checked || !isNotWorking(p))
                 && (!$('#q-jobverified').checked || p.jobVerified)
                 && !blocked.includes(p.uid);
         });
-        for (const p of all) p._score = matchScore(myProfile, p);
+        for (const p of all) {
+            p._score = matchScore(myProfile, p);
+            p._km = myProfile ? profilesKm(myProfile, p) : null;
+        }
 
         const newest = (a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0);
         const sort = f('sort');
+        const score = p => p._score ?? -1;
+        const verifiedCount = p => (p.verified ? 1 : 0) + (p.jobVerified ? 1 : 0);
         all.sort((a, b) => {
-            if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);          // Premium always first
-            const er = employmentRank(a) - employmentRank(b);
-            if (er) return er;            // unverified business / self-employed after professionals; not working last
-            if (!!a.jobVerified !== !!b.jobVerified) return !!b.jobVerified - !!a.jobVerified;   // job-verified first within a group
-            if (sort === 'best' && (a._score ?? -1) !== (b._score ?? -1)) return (b._score ?? -1) - (a._score ?? -1);
-            if (sort !== 'new' && a.verified !== b.verified) return b.verified - a.verified;
-            return newest(a, b);
+            if (isPrem(a) !== isPrem(b)) return isPrem(b) - isPrem(a);              // Premium always first
+            if (sort === 'best') return score(b) - score(a) || newest(a, b);         // the member's own preferences
+            if (sort === 'new') return newest(a, b);
+            if (sort === 'verified') return verifiedCount(b) - verifiedCount(a) || newest(a, b);
+            // 'recommended': provisional occupation tiers, then verified, then best match, then nearest, then newest
+            const km = p => p._km ?? 9999;
+            return tierOf(a) - tierOf(b) || verifiedCount(b) - verifiedCount(a) || score(b) - score(a) || km(a) - km(b) || newest(a, b);
         });
 
         shown = 0;

@@ -31,6 +31,14 @@
                 <div class="field"><label for="q-ethnicity" data-i18n="f_ethnicity">Ethnicity</label><select id="q-ethnicity"></select></div>
                 <div class="field"><label for="q-motherTongue" data-i18n="f_motherTongue">Mother tongue</label><select id="q-motherTongue"></select></div>
                 <div class="field"><label for="q-district" data-i18n="f_district">District</label><select id="q-district"></select></div>
+                <div class="field"><label for="q-near" data-i18n="f_near">Distance from my area</label>
+                    <select id="q-near">
+                        <option value="" data-i18n="any">Any</option>
+                        <option value="25" data-i18n="near_25">Within ~25 km</option>
+                        <option value="50" data-i18n="near_50">Within ~50 km</option>
+                        <option value="100" data-i18n="near_100">Within ~100 km</option>
+                        <option value="province" data-i18n="near_province">Same province</option>
+                    </select></div>
                 <div class="field"><label for="q-residence" data-i18n="f_residence">Living in</label><select id="q-residence"></select></div>
                 <div class="field"><label for="q-country" data-i18n="f_country_filter">Country</label><select id="q-country"></select></div>
                 <div class="field"><label for="q-relocate" data-i18n="f_relocate_filter">Willing to relocate</label>
@@ -41,7 +49,10 @@
                     </select></div>
                 <div class="field"><label for="q-marital" data-i18n="f_marital">Marital status</label><select id="q-marital"></select></div>
                 <div class="field"><label for="q-education" data-i18n="f_mineducation">Minimum education</label><select id="q-education"></select></div>
-                <div class="field"><label for="q-sort" data-i18n="sort_by">Sort by</label><select id="q-sort"><option value="best" data-i18n="sort_best">Best preference match</option><option value="new" data-i18n="sort_new">Recently joined</option><option value="verified" data-i18n="sort_verified">Verified first</option></select></div>
+                <div class="field"><label for="q-occGroup" data-i18n="f_occGroup">Occupation area</label><select id="q-occGroup"></select></div>
+                <div class="field"><label for="q-seniority" data-i18n="f_prefSeniority">Minimum seniority</label><select id="q-seniority"></select></div>
+                <div class="field"><label for="q-income" data-i18n="f_prefIncome">Minimum monthly income</label><select id="q-income"></select></div>
+                <div class="field"><label for="q-sort" data-i18n="sort_by">Sort by</label><select id="q-sort"><option value="recommended" data-i18n="sort_recommended">Recommended</option><option value="best" data-i18n="sort_best">Best match to my preferences</option><option value="new" data-i18n="sort_new">Recently joined</option><option value="verified" data-i18n="sort_verified">Verified first</option></select></div>
                 <div class="field"><label class="check"><input type="checkbox" id="q-verified"><span data-i18n="only_verified">ID-verified only</span></label><label class="check"><input type="checkbox" id="q-jobverified"><span data-i18n="only_jobverified">Job-verified only</span></label><label class="check"><input type="checkbox" id="q-working"><span data-i18n="only_working">Working only</span></label><label class="check" style="margin-bottom:.7rem"><input type="checkbox" id="q-shortlist"><span data-i18n="only_shortlist">My shortlist only</span></label></div>
                 <div class="field"><button class="btn btn-gold btn-block" type="submit" data-i18n="search">Search</button></div>
             </form>
