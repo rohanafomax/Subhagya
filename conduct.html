@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code of Conduct | Saubhagya</title>
+    <meta name="description" content="How we expect every member and family to behave on Saubhagya">
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div id="site-nav"></div>
+
+    <main>
+        <header class="page-head">
+            <div class="mandala" aria-hidden="true"><svg><use href="#mandala"/></svg></div>
+            <h1>Code of <em>conduct</em></h1>
+            <p>How we expect every member and family to behave on Saubhagya</p>
+        </header>
+        <div class="container narrow">
+            <div class="card legal">
+
+                <p>Saubhagya is a place for families and individuals seeking marriage in a respectful, honest and safe way. Everyone who uses the service — brides, grooms and the parents or relatives who help them — agrees to this Code of Conduct. Breaking it can lead to removal of your profile and account.</p>
+
+                <h2>1. Be honest</h2>
+                <ul>
+                    <li>Give true details about age, marital status, children, education, job, income and family. Do not exaggerate.</li>
+                    <li>Use recent photos of the bride or groom only — no other people, celebrities or heavily edited images.</li>
+                    <li>One account per person. Do not create a second account, especially after being removed.</li>
+                    <li>If you are married, engaged or no longer looking, hide or delete your profile.</li>
+                </ul>
+
+                <h2>2. Be respectful</h2>
+                <ul>
+                    <li>Be polite in every interaction. A "no" is a complete answer — accept declined interests gracefully.</li>
+                    <li>No insults, threats, harassment, stalking or repeated contact after someone has said no.</li>
+                    <li>No sexual or vulgar messages, photos or requests.</li>
+                    <li>No hate speech or abuse about anyone's religion, ethnicity, caste, appearance, disability or background. You may state your own preferences, but never insult others.</li>
+                </ul>
+
+                <h2>3. Protect each other's privacy</h2>
+                <ul>
+                    <li>Use contact details you receive only to discuss a possible marriage.</li>
+                    <li>Never share, post or forward another member's photos, phone number or details — including on social media or WhatsApp groups.</li>
+                    <li>Do not put your own phone number, email or links in your profile text; they are shared safely after both sides accept.</li>
+                    <li>Do not record or screenshot conversations to embarrass someone.</li>
+                </ul>
+
+                <h2>4. Never ask for or send money</h2>
+                <p>Genuine proposals never involve money requests — for travel, visas, customs fees, medical bills, gifts or "investments". Asking any member for money is grounds for <b>immediate removal</b> and may be reported to the police. If anyone asks you for money, stop contact and report the profile.</p>
+
+                <h2>5. Use Saubhagya for its purpose</h2>
+                <ul>
+                    <li>No advertising, selling, recruiting, marriage-broker or agent services, surveys or political or religious campaigning.</li>
+                    <li>No collecting member details with scripts, bots or copying.</li>
+                    <li>No impersonating another person or our staff.</li>
+                </ul>
+
+                <h2>6. Acting for a family member</h2>
+                <ul>
+                    <li>Only create a proposal with the bride's or groom's knowledge and consent.</li>
+                    <li>Describe them truthfully and respect their decisions about who to meet.</li>
+                    <li>You are responsible for everything done through the account you manage.</li>
+                </ul>
+
+                <h2>7. Meet safely</h2>
+                <p>Talk by phone or video first, involve family, meet in public places and follow our <a href="safety.html">safety tips</a>.</p>
+
+                <h2>8. Report problems</h2>
+                <p>Use the <b>⚑ Report</b> button on any profile, or email <a data-fill="email"></a>. Reports are confidential. Use <b>Block</b> to stop someone contacting you. False or malicious reports are themselves a breach of this code.</p>
+
+                <h2>9. What happens if the code is broken</h2>
+                <p>Depending on how serious it is, we may: ask you to change your profile; give a warning; hide your profile; limit features; suspend or permanently remove your account without refund; keep records to prevent you returning; and, for threats, fraud or other crimes, report the matter to the police. We decide each case fairly, but our decision is final for the use of Saubhagya.</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script type="module">
+        // Fill business details from config.js so these pages never go out of date.
+        import { RECEIPT, SITE_CONTACT } from './assets/js/config.js';
+        import './assets/js/app.js';
+        const fill = { business: RECEIPT.businessName, address: RECEIPT.address || '(address to be added)',
+            registration: RECEIPT.registration || '(registration number to be added)', email: SITE_CONTACT.email, phone: SITE_CONTACT.phone };
+        document.querySelectorAll('[data-fill]').forEach(el => {
+            const v = fill[el.dataset.fill];
+            if (el.dataset.fill === 'email') { el.textContent = v; el.href = 'mailto:' + v; } else el.textContent = v;
+        });
+        // FAQ: open the question named in the address, e.g. faq.html#delete
+        if (location.hash) document.querySelector(location.hash)?.setAttribute('open', '');
+    </script>
+</body>
+</html>

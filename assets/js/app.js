@@ -272,8 +272,10 @@ function renderChrome() {
                 <div>
                     <h4 data-i18n="foot_help">Help</h4>
                     <ul>
+                        <li><a href="faq.html" data-i18n="foot_faq">FAQ</a></li>
                         <li><a href="privacy.html" data-i18n="foot_privacy">Privacy policy</a></li>
-                        <li><a href="terms.html" data-i18n="foot_terms">Terms of use</a></li>
+                        <li><a href="terms.html" data-i18n="foot_terms">Terms of service</a></li>
+                        <li><a href="conduct.html" data-i18n="foot_conduct">Code of conduct</a></li>
                         <li><a href="mailto:${esc(SITE_CONTACT.email)}">${esc(SITE_CONTACT.email)}</a></li>
                         <li><a href="tel:${esc(SITE_CONTACT.phone.replace(/\s/g, ''))}">${esc(SITE_CONTACT.phone)}</a></li>
                     </ul>

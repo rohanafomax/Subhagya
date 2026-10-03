@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ | Saubhagya</title>
+    <meta name="description" content="Quick answers about registering, privacy, matching, verification and payments">
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .faq { border-bottom: 1px solid var(--line); padding: 0.2rem 0; }
+        .faq summary { cursor: pointer; padding: 0.75rem 0; font-weight: 500; color: var(--text-dark); list-style: none; display: flex; justify-content: space-between; gap: 1rem; }
+        .faq summary::after { content: '+'; color: var(--gold-dark); font-size: 1.3rem; line-height: 1; }
+        .faq[open] summary::after { content: '–'; }
+        .faq summary::-webkit-details-marker { display: none; }
+        .faq p { margin: 0 0 0.9rem; }
+    </style>
+</head>
+<body>
+    <div id="site-nav"></div>
+
+    <main>
+        <header class="page-head">
+            <div class="mandala" aria-hidden="true"><svg><use href="#mandala"/></svg></div>
+            <h1>Frequently asked <em>questions</em></h1>
+            <p>Quick answers about registering, privacy, matching, verification and payments</p>
+        </header>
+        <div class="container narrow">
+            <div class="card legal">
+
+                
+                <h2>Getting started</h2>
+                <details class="faq" id="free"><summary>Is Saubhagya free?</summary><p>Yes — registering, creating a proposal, browsing and sending interests are free. Premium adds contact details of your matches, unlimited interests and a higher place in search. During our <b>free launch</b>, Premium features are free for everyone.</p></details>
+                <details class="faq" id="register"><summary>How do I register?</summary><p>Click <a href="login.html?mode=register">Register Free</a>, enter your name, email and a password, and click the link in the verification email (check your Spam folder — Yahoo and Hotmail often put it there). Then create your proposal from My Account.</p></details>
+                <details class="faq" id="parents"><summary>Can parents or relatives create a proposal?</summary><p>Yes, with the bride's or groom's knowledge and consent. Choose “My son”, “My daughter” etc. in the first question of the form. The person managing the account is responsible for it.</p></details>
+                <details class="faq" id="review"><summary>Why is my profile “In review”?</summary><p>Every new or edited proposal is checked by our team before it appears, to keep out fake profiles. This usually takes less than 24 hours. If changes are needed, you will see the reason in My Account.</p></details>
+                <details class="faq" id="overseas"><summary>I live abroad. Can I join?</summary><p>Yes. Choose the country you live in and your residency status (citizen, PR, visa). Members can search for Sri Lankans in a particular country or those willing to relocate.</p></details>
+
+                <h2>Privacy and safety</h2>
+                <details class="faq" id="photos"><summary>Who can see my photos?</summary><p>You choose: all signed-in members, or only people whose interest you accept. Photos are never shown to the public or search engines. Change this any time with Edit profile.</p></details>
+                <details class="faq" id="contact"><summary>When is my phone number shared?</summary><p>Only after an interest is accepted by <b>both</b> sides, and only with that person (Premium members, or everyone during the free launch). It is never shown on your profile.</p></details>
+                <details class="faq" id="fake"><summary>How do you stop fake profiles?</summary><p>Email verification, manual review of every profile, automatic checks for reused photos and phone numbers, optional ID and job verification, and a Report button on every profile. Fake profiles are removed.</p></details>
+                <details class="faq" id="report"><summary>How do I report or block someone?</summary><p>Open their profile and use <b>⚑ Report</b> or <b>Block</b>. Reports are confidential and checked by our team. Blocked members can no longer send you interests.</p></details>
+                <details class="faq" id="money"><summary>Someone asked me for money. What should I do?</summary><p>Stop contact immediately and report the profile. Genuine proposals never ask for money. See our <a href="safety.html">safety tips</a>.</p></details>
+                <details class="faq" id="delete"><summary>How do I delete my account?</summary><p>My Account → Settings → <b>Delete my account</b>, then type DELETE. Your proposal, photos and contact details are removed permanently. You can also just <b>hide</b> your profile if you only want a break.</p></details>
+
+                <h2>Matching</h2>
+                <details class="faq" id="interest"><summary>How do interests work?</summary><p>Send an interest from a profile you like. If they accept, you are matched and can see each other's photos and contact details. Free members can send a limited number of interests each month; Premium is unlimited.</p></details>
+                <details class="faq" id="match"><summary>What is the “% match”?</summary><p>It shows how well you fit each other's stated preferences — career, finances, and lifestyle & location — checked in both directions. It is a guide based only on what you both entered, not a prediction.</p></details>
+                <details class="faq" id="porondam"><summary>How does porondam work?</summary><p>We show a <b>basic porondam</b> (up to 8 checks such as Dina, Gana, Rajju and Nadi) calculated from both people's nakatha and rashi. It is an automatic guide only — please confirm with an astrologer using full horoscopes.</p></details>
+                <details class="faq" id="distance"><summary>How is distance worked out?</summary><p>From the home district and the district you live or work in now, so someone in Gampaha shows as close to Colombo. You can choose how far is acceptable in your partner preferences.</p></details>
+
+                <h2>Verification</h2>
+                <details class="faq" id="id"><summary>What is ID verification?</summary><p>Upload a photo of your NIC and a selfie holding it (My Account → Verification). Our team checks them and deletes the images. Your profile then shows an “ID verified” badge.</p></details>
+                <details class="faq" id="job"><summary>What is job verification?</summary><p>Optional proof of your job: a link sent to your work email (instant), a professional registration number, or a staff ID / business registration with numbers covered. Verified profiles show a badge and are listed higher among similar profiles.</p></details>
+
+                <h2>Membership and payments</h2>
+                <details class="faq" id="pay"><summary>How do I pay for Premium?</summary><p>On the <a href="pricing.html">Membership</a> page, choose a package, transfer the amount with your <b>payment code</b> in the remark, and upload the receipt. We activate Premium after checking, usually within a few hours.</p></details>
+                <details class="faq" id="family-pay"><summary>Can a family member pay for me?</summary><p>Yes — they can pay from their own account or from abroad. Just upload their receipt and make sure your payment code is in the transfer remark.</p></details>
+                <details class="faq" id="renew"><summary>Does Premium renew automatically?</summary><p>No. It ends on the date shown in My Account, and we remind you 7 days before. You can renew any time; extra time is added to your current period.</p></details>
+                <details class="faq" id="refund"><summary>Can I get a refund?</summary><p>Premium is not refundable once activated, because contact details become available immediately. If your payment was not activated within 7 days, contact us. See the <a href="terms.html">Terms of Service</a>.</p></details>
+                <div class="alert alert-info mt-3">Still have a question? Email <a data-fill="email"></a>.</div>
+            </div>
+        </div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script type="module">
+        // Fill business details from config.js so these pages never go out of date.
+        import { RECEIPT, SITE_CONTACT } from './assets/js/config.js';
+        import './assets/js/app.js';
+        const fill = { business: RECEIPT.businessName, address: RECEIPT.address || '(address to be added)',
+            registration: RECEIPT.registration || '(registration number to be added)', email: SITE_CONTACT.email, phone: SITE_CONTACT.phone };
+        document.querySelectorAll('[data-fill]').forEach(el => {
+            const v = fill[el.dataset.fill];
+            if (el.dataset.fill === 'email') { el.textContent = v; el.href = 'mailto:' + v; } else el.textContent = v;
+        });
+        // FAQ: open the question named in the address, e.g. faq.html#delete
+        if (location.hash) document.querySelector(location.hash)?.setAttribute('open', '');
+    </script>
+</body>
+</html>

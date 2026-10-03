@@ -4,7 +4,7 @@ export const SI = {
     nav_home: 'මුල් පිටුව', nav_browse: 'යෝජනා බලන්න', nav_why: 'අප ගැන', nav_pricing: 'සාමාජිකත්වය', nav_dashboard: 'මගේ ගිණුම',
     nav_admin: 'පරිපාලක', nav_logout: 'ඉවත් වන්න', nav_login: 'ඇතුල් වන්න', nav_register: 'නොමිලේ ලියාපදිංචි වන්න',
     foot_about: 'වෘත්තිකයන් සඳහා, සම්ප්‍රදායික මංගල යෝජනා වටිනාකම් නවීන තාක්ෂණය සමඟ එක් කරන ශ්‍රී ලාංකීය සේවාවක්. ආරක්ෂිත, පෞද්ගලික සහ පවුල් සඳහා.',
-    foot_explore: 'ගවේෂණය', foot_help: 'උදව්', foot_privacy: 'පෞද්ගලිකත්ව ප්‍රතිපත්තිය', foot_terms: 'භාවිත කොන්දේසි', foot_safety: 'ආරක්ෂක උපදෙස්',
+    foot_explore: 'ගවේෂණය', foot_help: 'උදව්', foot_privacy: 'පෞද්ගලිකත්ව ප්‍රතිපත්තිය', foot_terms: 'සේවා කොන්දේසි', foot_conduct: 'හැසිරීම් සංග්‍රහය', foot_faq: 'නිතර අසන ප්‍රශ්න', foot_safety: 'ආරක්ෂක උපදෙස්',
 
     // home
     hero_tag: '✦ වෘත්තිකයන් සඳහා ශ්‍රී ලංකාවේ මංගල යෝජනා සේවාව ✦', hero_h1a: 'ඔබේ', hero_h1b: 'ජීවන සහකරු',
