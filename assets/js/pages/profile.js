@@ -9,6 +9,7 @@ import { FREE_INTEREST_LIMIT } from '../config.js';
 import { countryName, occupationLabel, profilesKm } from '../data.js';
 import { matchDetails } from '../match.js';
 import { jobBadgeText } from '../job.js';
+import { porondamFor, PORONDAM_NAMES } from '../porondam.js';
 
 const id = new URLSearchParams(location.search).get('id');
 const me = await requireAuth();
@@ -22,6 +23,28 @@ const ICON_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 async function safeGet(path) {
     try { const s = await getDoc(doc(db, ...path)); return s.exists() ? s.data() : null; } catch { return null; }
+}
+
+/** Basic porondam between the viewer and this profile (shown separately from the match %). */
+let viewerProfile = null;
+function porondamHtml(p) {
+    if (own) return '';
+    if (!viewerProfile?.nakatha || !p.nakatha) {
+        return `<p class="muted mt-2" style="font-size:.85rem">${esc(t('por_need', 'Basic porondam appears here when both profiles have a nakatha.'))}${
+            viewerProfile && !viewerProfile.nakatha ? ` <a href="my-profile.html">${esc(t('por_add', 'Add yours'))}</a>` : ''}</p>`;
+    }
+    const r = porondamFor(viewerProfile, p);
+    if (!r) return '';
+    const si = getLang() === 'si';
+    return `<div class="porondam mt-2">
+        <div class="row" style="justify-content:space-between">
+            <strong>${esc(t('por_title', 'Basic porondam with you'))}</strong>
+            <span class="badge ${r.matched / r.total >= 0.6 ? 'badge-approved' : 'badge-pending'}">${r.matched} / ${r.total}</span>
+        </div>
+        <div class="por-list">${r.checks.map(c => `<span class="${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✗'} ${esc(PORONDAM_NAMES[c.key][si ? 1 : 0])}</span>`).join('')}</div>
+        ${r.sameStar ? `<div class="alert alert-info" style="margin:.5rem 0 0">${esc(t('por_same', 'You both have the same nakatha — astrologers apply special rules for this, so please consult one.'))}</div>` : ''}
+        <p class="muted" style="font-size:.78rem;margin-top:.4rem">${esc(t('por_note', 'Automatic guide from nakatha and rashi only, using common rules. Traditions differ — please confirm with an astrologer using full horoscopes.'))}</p>
+    </div>`;
 }
 
 const fact = (k, en, v) => v ? `<div><dt data-i18n="${k}">${esc(en)}</dt><dd>${esc(v)}</dd></div>` : '';
@@ -55,6 +78,7 @@ async function render() {
     const isPrem = p.premium && toDate(p.premiumUntil) > new Date();
     const blocked = (me.account.blocked || []).includes(id);
     const shortlisted = (me.account.shortlist || []).includes(id);
+    viewerProfile = myProfile;
     const match = own ? null : matchDetails(myProfile, p);
     const score = match?.score ?? null;
     const PART_NAMES = { career: t('mp_career', 'Career'), financial: t('mp_financial', 'Financial'), lifestyle: t('mp_lifestyle', 'Lifestyle & location') };
@@ -145,6 +169,7 @@ async function render() {
                     ${fact('f_gana', 'Gana', p.gana && label('gana', p.gana))}
                     ${fact('f_horoscopeMatch', 'Horoscope matching', p.horoscopeMatch && label('horoscopeMatch', p.horoscopeMatch))}
                 </dl>
+                ${porondamHtml(p)}
             </div>
 
             <div class="card">

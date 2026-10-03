@@ -452,6 +452,13 @@ a { color: var(--maroon); }
 .plan li.no { opacity: 0.55; }
 .plan li.no::before { content: '–'; color: var(--text-soft); }
 
+/* porondam */
+.porondam { padding: 1rem; border-radius: 12px; background: #fffaf0; border: 1px solid rgba(212, 175, 55, 0.4); }
+.por-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.por-list span { padding: 0.2rem 0.6rem; border-radius: 14px; font-size: 0.82rem; }
+.por-list .ok { background: #e8f5ee; color: var(--ok); }
+.por-list .no { background: #f4efe6; color: var(--text-soft); }
+
 /* payments */
 .pay-code {
     display: inline-block;

@@ -7,6 +7,7 @@ import {
     areasOf, profilesKm, sameProvince
 } from '../data.js';
 import { matchScore } from '../match.js';
+import { porondamFor } from '../porondam.js';
 
 const PAGE = 24;
 const params = new URLSearchParams(location.search);
@@ -51,7 +52,7 @@ function card(p) {
             <div class="meta">${esc(label('education', p.education))}${p.profession && occupationLabel(p) ? ' · ' + esc(p.profession) : ''}</div>
             <div class="meta">${heightLabel(p.height).split(' (')[0]} · ${esc(label('marital', p.marital))}</div>
             <div class="row" style="margin-top:.5rem;justify-content:space-between">
-                <span class="ref">${refCode(p.uid)}</span>
+                <span class="ref">${refCode(p.uid)}${p._por ? ` · <span title="${esc(t('por_hint', 'Basic porondam from nakatha and rashi — a guide only'))}">${esc(t('porondam', 'Porondam'))} ${p._por.matched}/${p._por.total}</span>` : ''}</span>
                 ${p._score != null ? `<span class="badge badge-approved" title="${esc(t('match_hint', 'How well you fit each other’s stated preferences'))}">${p._score}% ${esc(t('pref_match', 'match'))}</span>` : ''}
             </div>
         </div>
@@ -131,7 +132,10 @@ async function search() {
         for (const p of all) {
             p._score = matchScore(myProfile, p);
             p._km = myProfile ? profilesKm(myProfile, p) : null;
+            p._por = porondamFor(myProfile, p);
         }
+        const minPor = Number(f('porondam')) || 0;
+        if (minPor) all = all.filter(p => p._por && p._por.matched >= minPor);
 
         const newest = (a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0);
         const sort = f('sort');
