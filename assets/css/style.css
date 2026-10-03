@@ -62,7 +62,7 @@ a { color: var(--maroon); }
 .logo-text { font-size: 1.85rem; font-weight: 800; color: var(--maroon); line-height: 1; }
 .logo-sub { font-size: 0.7rem; color: var(--gold-dark); letter-spacing: 0.4px; }
 
-.nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+.nav-links { display: flex; align-items: center; gap: 1.6rem; list-style: none; }
 .nav-links a {
     position: relative;
     color: var(--text-dark);
@@ -513,7 +513,7 @@ a { color: var(--maroon); }
     .footer-grid { grid-template-columns: 1fr 1fr; }
     .footer-grid > :first-child { grid-column: 1 / -1; }
 }
-@media (max-width: 860px) {
+@media (max-width: 1080px) {
     .menu-btn { display: inline-grid; place-items: center; }
     .nav-links {
         position: fixed;

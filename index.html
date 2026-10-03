@@ -213,6 +213,20 @@
             .how-steps { grid-template-columns: 1fr; }
             section.block { padding: 4rem 16px; }
         }
+        /* free launch banner */
+        .launch-strip {
+            display: block;
+            padding: 0.75rem 16px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--maroon-deep);
+            font-weight: 500;
+            background: linear-gradient(90deg, var(--gold-dark), var(--gold-light) 30%, var(--gold) 50%, var(--gold-light) 70%, var(--gold-dark));
+            background-size: 200% auto;
+            animation: shimmer 8s linear infinite;
+        }
+        .launch-strip b { font-weight: 700; }
+        .launch-strip .go { text-decoration: underline; white-space: nowrap; margin-left: .3rem; }
         @media (prefers-reduced-motion: reduce) { #sparkles { display: none; } }
     </style>
 </head>
@@ -220,6 +234,7 @@
     <div id="site-nav"></div>
 
     <main>
+        <a id="launch-strip" class="launch-strip" href="login.html?mode=register" hidden></a>
         <header class="hero">
             <canvas id="sparkles" aria-hidden="true"></canvas>
             <div class="frame" aria-hidden="true"></div>
@@ -327,7 +342,19 @@
     <div id="site-footer"></div>
 
     <script type="module">
-        import { fillSelect, t } from './assets/js/app.js';
+        import { fillSelect, t, siteConfig, whenReady, esc } from './assets/js/app.js';
+        import { FREE_LAUNCH_TARGET } from './assets/js/config.js';
+
+        // Free launch banner (only while the free launch is on)
+        siteConfig().then(async ({ freeMode }) => {
+            if (!freeMode) return;
+            const strip = document.getElementById('launch-strip');
+            const signedIn = !!(await whenReady());
+            strip.innerHTML = `🎉 <b>${esc(t('launch_offer', 'Launch offer:'))}</b> ${esc(t('launch_strip', `all Premium features are FREE for our first ${FREE_LAUNCH_TARGET} members — including contact details of your matches.`))}
+                <span class="go">${esc(signedIn ? t('launch_go_in', 'Browse proposals →') : t('launch_go', 'Register now →'))}</span>`;
+            if (signedIn) strip.href = 'browse.html';
+            strip.hidden = false;
+        });
 
         fillSelect(document.getElementById('s-religion'), 'religion', { any: t('any', 'Any religion') });
         fillSelect(document.getElementById('s-district'), 'district', { any: t('any', 'Any district') });

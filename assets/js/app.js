@@ -215,6 +215,7 @@ function renderChrome() {
                 <div><div class="logo-text">Saubhagya</div><div class="logo-sub si">ශ්‍රී ලංකා මංගල යෝජනා</div></div>
             </a>
             <ul class="nav-links" id="nav-links">
+                <li><a href="index.html" data-i18n="nav_home" class="${page === 'index.html' ? 'active' : ''}">Home</a></li>
                 <li><a href="browse.html" data-i18n="nav_browse" class="${page === 'browse.html' ? 'active' : ''}">Browse</a></li>
                 <li><a href="index.html#why-us" data-i18n="nav_why">Why Us</a></li>
                 <li><a href="pricing.html" data-i18n="nav_pricing" class="${page === 'pricing.html' ? 'active' : ''}">Membership</a></li>
