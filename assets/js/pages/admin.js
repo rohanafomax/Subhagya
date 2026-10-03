@@ -1,6 +1,7 @@
 import {
-    doc, getDoc, getDocs, updateDoc, collection, query, where, serverTimestamp, deleteField, Timestamp, getCountFromServer
+    doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, serverTimestamp, deleteField, Timestamp, getCountFromServer
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+import { FREE_LAUNCH_TARGET, FREE_INTEREST_LIMIT } from '../config.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
 import { contactInfoIn, PUBLIC_TEXT_FIELDS, isDisposableEmail, nameProblems, consistencyProblems } from '../checks.js';
 import { JOB_BODIES, occupationLabel, tierOf, isBusiness } from '../data.js';
@@ -46,7 +47,50 @@ async function load() {
             <div class="stat"><b>${approved.data().count}</b><span>Live profiles</span></div>
             <div class="stat"><b>${data.profiles.length}</b><span>Waiting for review</span></div>
             <div class="stat"><b>${data.reports.length}</b><span>Open reports</span></div>`;
+        await renderLaunchBox(approved.data().count);
     } catch {}
+}
+
+// ───────── free launch switch ─────────
+async function renderLaunchBox(live) {
+    const s = await getDoc(doc(db, 'config', 'site')).catch(() => null);
+    const freeMode = !(s?.exists() && s.data().freeMode === false);
+    const pct = Math.min(100, Math.round((live / FREE_LAUNCH_TARGET) * 100));
+    const reached = live >= FREE_LAUNCH_TARGET;
+    $('#launch-box').innerHTML = freeMode
+        ? `<div class="alert ${reached ? 'alert-ok' : 'alert-info'}">
+            <div class="row" style="justify-content:space-between">
+                <span><b>★ Free launch is ON</b> — every member gets the Premium features free (contact details of accepted matches, unlimited interests). No payments are taken.</span>
+                <button class="btn btn-sm btn-outline" id="launch-off">End free launch…</button>
+            </div>
+            <div style="margin-top:.6rem;background:#fff;border-radius:6px;height:10px;overflow:hidden">
+                <div style="width:${pct}%;height:100%;background:var(--gold)"></div></div>
+            <div class="mt-1"><b>${live} / ${FREE_LAUNCH_TARGET}</b> live profiles${reached
+                ? ' — <b>target reached.</b> You can end the free launch whenever you are ready.' : ''}</div>
+          </div>`
+        : `<div class="alert alert-info row" style="justify-content:space-between">
+            <span><b>Free launch is OFF</b> — Premium is paid. ${live} live profiles.</span>
+            <button class="btn btn-sm btn-ghost" id="launch-on">Turn free launch back on</button></div>`;
+
+    $('#launch-off')?.addEventListener('click', () => {
+        const m = modal(`<h3>End the free launch?</h3>
+            <p>Members who haven't paid will no longer see phone numbers of their matches, and free members go back to ${FREE_INTEREST_LIMIT} interests a month. The Membership page will start taking payments again.</p>
+            <p class="muted">Tip: tell members a week before, e.g. with a notice or email, so nobody is surprised.</p>
+            <div class="row mt-2"><button class="btn btn-ghost" data-close>Cancel</button><span class="spacer"></span>
+            <button class="btn btn-danger" id="launch-confirm">End free launch</button></div>`);
+        m.querySelector('#launch-confirm').addEventListener('click', async () => {
+            await setLaunch(false); m.remove();
+        });
+    });
+    $('#launch-on')?.addEventListener('click', () => setLaunch(true));
+}
+
+async function setLaunch(on) {
+    try {
+        await setDoc(doc(db, 'config', 'site'), { freeMode: on, changedAt: serverTimestamp() }, { merge: true });
+        toast(on ? 'Free launch switched on' : 'Free launch ended — Premium is now paid');
+        await load();
+    } catch (err) { toast(friendlyError(err), true); }
 }
 
 // ───────── automatic warning flags ─────────

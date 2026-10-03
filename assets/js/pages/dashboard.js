@@ -5,7 +5,7 @@ import {
     sendEmailVerification, deleteUser, EmailAuthProvider, reauthenticateWithCredential, updatePassword
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import {
-    db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, fmtDate, toDate, refCode,
+    db, requireAuth, isPremium, siteConfig, t, $, $$, esc, toast, label, ageFrom, fmtDate, toDate, refCode,
     friendlyError, applyI18n, modal, setLang, getLang, logout, markMatchesSeen, updateBadges
 } from '../app.js';
 import { compressImage } from '../image.js';
@@ -15,15 +15,19 @@ import { sendWorkEmailLink, pendingWorkEmail, syncJobBadge } from '../job.js';
 
 const me = await requireAuth();
 const uid = me.user.uid;
-const premium = isPremium(me.account);
+const paid = isPremium(me.account);
+const { freeMode } = await siteConfig();
+const premium = paid || freeMode;      // Premium features: paid, or everyone during the free launch
 
 let profile = null, received = [], sent = [], verification = null, jobCheck = null;
 const people = new Map();   // uid → profile (or null if not visible)
 
 $('#hello-name').textContent = me.user.displayName || me.user.email;
-$('#plan-line').innerHTML = premium
+$('#plan-line').innerHTML = paid
     ? `<span class="badge badge-premium">★ ${esc(t('premium', 'Premium'))}</span> ${esc(t('until', 'until'))} ${fmtDate(me.account.premiumUntil)}`
-    : `${esc(t('free_plan', 'Free membership'))} · <a href="pricing.html" style="color:var(--gold-light)">${esc(t('upgrade', 'Upgrade to Premium'))}</a>`;
+    : freeMode
+        ? `<span class="badge badge-premium">★ ${esc(t('free_launch', 'Free launch'))}</span> ${esc(t('free_launch_line', 'All Premium features are free for now'))}`
+        : `${esc(t('free_plan', 'Free membership'))} · <a href="pricing.html" style="color:var(--gold-light)">${esc(t('upgrade', 'Upgrade to Premium'))}</a>`;
 
 async function loadPerson(id) {
     if (people.has(id)) return people.get(id);
@@ -158,8 +162,11 @@ const tabs = {
         return `
             <div class="list-row"><div class="info"><strong>${esc(t('language', 'Language'))}</strong><div class="muted">English / සිංහල</div></div>
                 <button class="btn btn-sm btn-ghost" id="lang-toggle">${getLang() === 'si' ? 'English' : 'සිංහල'}</button></div>
-            <div class="list-row"><div class="info"><strong>${esc(t('membership', 'Membership'))}</strong><div class="muted">${premium ? esc(t('premium', 'Premium')) + ' · ' + fmtDate(me.account.premiumUntil) : esc(t('free_plan', 'Free membership'))}</div></div>
-                <a class="btn btn-sm btn-gold" href="pricing.html">${esc(premium ? t('extend', 'Extend') : t('upgrade', 'Upgrade to Premium'))}</a></div>
+            <div class="list-row"><div class="info"><strong>${esc(t('membership', 'Membership'))}</strong><div class="muted">${
+                paid ? esc(t('premium', 'Premium')) + ' · ' + fmtDate(me.account.premiumUntil)
+                : freeMode ? esc(t('free_launch_line', 'All Premium features are free for now'))
+                : esc(t('free_plan', 'Free membership'))}</div></div>
+                ${freeMode && !paid ? '' : `<a class="btn btn-sm btn-gold" href="pricing.html">${esc(paid ? t('extend', 'Extend') : t('upgrade', 'Upgrade to Premium'))}</a>`}</div>
             ${me.user.providerData.some(p => p.providerId === 'password') ? `
             <div class="list-row"><div class="info"><strong>${esc(t('change_pw', 'Change password'))}</strong><div class="muted">${esc(t('change_pw_note', 'Use a password you do not use anywhere else.'))}</div></div>
                 <button class="btn btn-sm btn-ghost" id="pw-btn">${esc(t('change', 'Change'))}</button></div>` : ''}

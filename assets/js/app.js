@@ -115,6 +115,21 @@ export function modal(html) {
     return back;
 }
 
+// ───────── site settings (config/site) ─────────
+let _site;
+/** Site-wide settings set by the admin. Free launch is on unless the admin has switched it off. */
+export async function siteConfig() {
+    if (_site) return _site;
+    let data = {};
+    try { const s = await getDoc(doc(db, 'config', 'site')); if (s.exists()) data = s.data(); } catch {}
+    _site = { ...data, freeMode: data.freeMode !== false };
+    return _site;
+}
+/** True when this member gets Premium features — paid Premium, or everyone during the free launch. */
+export async function hasPremiumAccess(account) {
+    return isPremium(account) || (await siteConfig()).freeMode;
+}
+
 // ───────── auth state ─────────
 let _me = null;            // { user, account }  account = users/{uid} doc data
 let _resolve;

@@ -25,6 +25,10 @@ export const PLANS = [
     { id: 'p12', months: 12, price: 6500 }
 ];
 
+// 2b. Free launch: while on (the default), every member gets the Premium features free.
+//     Admin switches it off with one click; this number is the target shown in Admin.
+export const FREE_LAUNCH_TARGET = 100;   // live profiles
+
 // 3. How many interests a free member may send per calendar month.
 export const FREE_INTEREST_LIMIT = 5;
 

@@ -2,7 +2,7 @@ import {
     doc, getDoc, getDocs, setDoc, addDoc, updateDoc, collection, query, where, serverTimestamp, arrayUnion, arrayRemove
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import {
-    db, requireAuth, isPremium, t, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate,
+    db, requireAuth, hasPremiumAccess, t, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate,
     friendlyError, applyI18n, modal, fillSelect, getLang
 } from '../app.js';
 import { FREE_INTEREST_LIMIT } from '../config.js';
@@ -14,7 +14,7 @@ const id = new URLSearchParams(location.search).get('id');
 const me = await requireAuth();
 const myId = me.user.uid;
 const own = id === myId;
-const premium = isPremium(me.account);
+const premium = await hasPremiumAccess(me.account);     // paid Premium, or anyone during the free launch
 const view = $('#view');
 
 const ICON_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-10"/></svg>';

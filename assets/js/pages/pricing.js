@@ -1,9 +1,9 @@
 import {
     addDoc, getDocs, collection, query, where, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
-import { db, whenReady, isPremium, t, $, esc, toast, fmtDate, toDate, friendlyError, applyI18n } from '../app.js';
+import { db, whenReady, isPremium, siteConfig, t, $, esc, toast, fmtDate, toDate, friendlyError, applyI18n } from '../app.js';
 import { compressImage } from '../image.js';
-import { PLANS, BANK, FREE_INTEREST_LIMIT } from '../config.js';
+import { PLANS, BANK, FREE_INTEREST_LIMIT, FREE_LAUNCH_TARGET } from '../config.js';
 
 const lkr = n => 'LKR ' + n.toLocaleString('en-LK');
 
@@ -47,6 +47,15 @@ $('#pkg').innerHTML = PLANS.map(p => `<option value="${p.id}">${p.months} ${esc(
 
 const m = await whenReady();
 
+const { freeMode } = await siteConfig();
+if (freeMode) {
+    // Free launch: everyone already has the Premium features, so don't take payments yet.
+    $('#plans').insertAdjacentHTML('beforebegin', `<div class="alert alert-ok" style="font-size:1rem">
+        <b>★ ${esc(t('free_launch', 'Free launch'))}:</b> ${esc(t('free_launch_body', `all Premium features are free for every member until we reach ${FREE_LAUNCH_TARGET} members — including phone numbers of your accepted matches and unlimited interests. Prices below apply after the launch.`))}
+        ${m ? '' : ` <a href="login.html?mode=register">${esc(t('nav_register', 'Register Free'))}</a>`}</div>`);
+    document.querySelectorAll('[data-choose]').forEach(b => { b.disabled = true; b.textContent = t('after_launch', 'Available after launch'); });
+}
+
 document.addEventListener('click', e => {
     const b = e.target.closest('[data-choose]');
     if (!b) return;
@@ -55,7 +64,9 @@ document.addEventListener('click', e => {
     $('#pay-card').scrollIntoView({ behavior: 'smooth' });
 });
 
-if (!m) {
+if (freeMode && !isPremium(m?.account)) {
+    // nothing to pay for during the free launch
+} else if (!m) {
     $('#login-card').hidden = false;
 } else {
     $('#pay-card').hidden = false;

@@ -19,6 +19,10 @@ service cloud.firestore {
         && account(me()).premiumUntil > request.time;
     }
     function emailVerified() { return request.auth.token.email_verified == true; }
+    // Free launch: Premium features for everyone until the admin sets config/site.freeMode = false.
+    function freeMode() {
+      return !exists(path('config', 'site')) || get(path('config', 'site')).data.get('freeMode', true) != false;
+    }
     function acceptedBetween(a, b) {
       return (exists(path('interests', a + '_' + b)) && get(path('interests', a + '_' + b)).data.status == 'accepted')
           || (exists(path('interests', b + '_' + a)) && get(path('interests', b + '_' + a)).data.status == 'accepted');
@@ -101,7 +105,7 @@ service cloud.firestore {
 
     // ── Private contact details: owner, admin, or a Premium member with an accepted match ──
     match /contacts/{uid} {
-      allow get: if signedIn() && (me() == uid || isAdmin() || (isPremium() && acceptedBetween(me(), uid)));
+      allow get: if signedIn() && (me() == uid || isAdmin() || ((isPremium() || freeMode()) && acceptedBetween(me(), uid)));
       // admins may search contacts (duplicate phone check)
       allow list: if isAdmin();
       allow create, update: if signedIn() && me() == uid && request.resource.data.uid == uid;
@@ -189,6 +193,12 @@ service cloud.firestore {
         && get(path('jobEmailRequests', uid)).data.email == request.resource.data.email
         && getAfter(path('jobEmailIndex', request.resource.data.email)).data.uid == uid;
       allow delete: if isAdmin() || (signedIn() && me() == uid);
+    }
+
+    // ── Site settings (free launch on/off) ──
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ── Reports of bad profiles ──
