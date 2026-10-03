@@ -62,6 +62,17 @@ function renderAlerts() {
     const a = [];
     const params = new URLSearchParams(location.search);
     if (params.get('saved')) a.push(`<div class="alert alert-ok">${esc(t('saved_review', 'Thank you! Your profile was submitted. Our team reviews new profiles, usually within 24 hours.'))}</div>`);
+    // Premium ending soon, or just ended
+    const until = toDate(me.account.premiumUntil);
+    if (until) {
+        const days = Math.ceil((until - new Date()) / 864e5);
+        const renew = `<a class="btn btn-sm btn-gold" href="pricing.html" style="margin-left:.5rem">${esc(t('renew', 'Renew'))}</a>`;
+        if (days >= 0 && days <= 7) {
+            a.push(`<div class="alert alert-info">★ ${esc(t('prem_ending', 'Your Premium membership ends on'))} <b>${fmtDate(until)}</b> (${days === 0 ? esc(t('today', 'today')) : days + ' ' + esc(t('days', 'days'))}).${freeMode ? '' : renew}</div>`);
+        } else if (days < 0 && days >= -30 && !freeMode) {
+            a.push(`<div class="alert alert-info">${esc(t('prem_ended', 'Your Premium membership ended on'))} <b>${fmtDate(until)}</b>.${renew}</div>`);
+        }
+    }
     if (!me.user.emailVerified) {
         a.push(`<div class="alert alert-info">${esc(t('verify_email', 'Please verify your email address. We sent a link to'))} <b>${esc(me.user.email)}</b>.
             <div class="mt-1">${esc(t('check_spam', 'Not in your inbox? Check the Spam / Junk folder — Yahoo and Hotmail often put it there. Mark it “Not spam”.'))}</div>

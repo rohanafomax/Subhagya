@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment receipt | Saubhagya</title>
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#6e0c1f">
+    <link rel="icon" href="images/icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@500;600;700;800&family=Noto+Sans+Sinhala:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .receipt { max-width: 640px; margin: 2rem auto; }
+        .receipt .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid var(--gold); padding-bottom: 1rem; margin-bottom: 1rem; }
+        .receipt .head h1 { font-size: 2rem; color: var(--maroon); line-height: 1; }
+        .receipt table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+        .receipt td { padding: 0.55rem 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; }
+        .receipt td:first-child { color: var(--text-soft); width: 45%; }
+        .receipt .total td { font-weight: 700; font-size: 1.1rem; color: var(--maroon); border-bottom: 2px solid var(--gold); }
+        .paid-stamp { display: inline-block; padding: 0.3rem 0.9rem; border: 3px solid var(--ok); color: var(--ok); border-radius: 8px; font-weight: 800; letter-spacing: 2px; transform: rotate(-6deg); }
+        @media print {
+            .site-nav, .site-footer, .config-banner, .no-print { display: none !important; }
+            body { background: #fff; }
+            .card { box-shadow: none; border: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="site-nav"></div>
+    <main>
+        <div class="container"><div class="card receipt" id="box"><div class="spinner"></div></div></div>
+    </main>
+    <div id="site-footer"></div>
+    <script type="module" src="assets/js/pages/receipt.js"></script>
+</body>
+</html>

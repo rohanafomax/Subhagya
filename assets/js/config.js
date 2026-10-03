@@ -45,7 +45,16 @@ export const BANK = {
     bank: 'Your Bank Name',
     branch: 'Branch',
     accountName: 'Account Holder Name',
-    accountNumber: '000000000000'
+    accountNumber: '000000000000',
+    swift: '',             // e.g. 'BKCHLKLX' — shown to members paying from abroad; leave '' to hide
+    qrImage: ''            // e.g. 'images/lankaqr.png' — your bank's LankaQR code; leave '' to hide
+};
+
+// Business details printed on payment receipts.
+export const RECEIPT = {
+    businessName: 'Saubhagya Matrimony',
+    address: '',           // e.g. 'No. 1, Main Street, Kandy'
+    registration: ''       // e.g. business registration number, once registered
 };
 
 // 5. Contact details shown in the footer.

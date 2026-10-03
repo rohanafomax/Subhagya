@@ -452,6 +452,25 @@ a { color: var(--maroon); }
 .plan li.no { opacity: 0.55; }
 .plan li.no::before { content: '–'; color: var(--text-soft); }
 
+/* payments */
+.pay-code {
+    display: inline-block;
+    margin: 0.4rem 0;
+    padding: 0.45rem 1rem;
+    border: 2px dashed var(--gold);
+    border-radius: 10px;
+    background: #fffaf0;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--maroon);
+    user-select: all;
+}
+.pay-methods { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: start; }
+.pay-methods #qr img { width: 180px; height: 180px; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; background: #fff; padding: 6px; }
+@media (max-width: 640px) { .pay-methods { grid-template-columns: 1fr; } }
+
 /* modal */
 .modal-back {
     position: fixed;

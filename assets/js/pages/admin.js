@@ -211,17 +211,40 @@ const tabs = {
     },
     async payments() {
         if (!data.payments.length) return '<div class="empty"><p>No payments waiting.</p></div>';
-        return data.payments.map(p => `<div class="review">
+        const rows = await Promise.all(data.payments.map(async p => {
+            // the same slip image submitted before (by anyone) is a strong sign of a reused/fake slip
+            const dupes = p.slipHash
+                ? (await getDocs(query(collection(db, 'payments'), where('slipHash', '==', p.slipHash))).catch(() => ({ docs: [] })))
+                    .docs.filter(d => d.id !== p.id).map(d => d.data())
+                : [];
+            const warn = dupes.length
+                ? `<div class="alert alert-err" style="margin:.5rem 0">⚠ This exact slip was already submitted ${dupes.length}× before (${dupes.map(d => `${refCode(d.uid)} on ${fmtDate(d.createdAt)}`).join(', ')}). Check carefully — it may be reused.</div>`
+                : '';
+            return `<div class="review">
             <div class="pics">${img(p.slip)}</div>
             <div>
                 <h3>LKR ${Number(p.amount).toLocaleString()} · ${p.months} months</h3>
-                ${kv('Member', `${p.email} (${refCode(p.uid)})`)} ${kv('Reference', p.reference)} ${kv('Submitted', fmtDate(p.createdAt))}
-                <p class="muted mt-1">Confirm the money reached your bank account before approving.</p>
+                ${p.payCode ? `<div class="pay-code" style="font-size:1.05rem">${esc(p.payCode)}</div>` : ''}
+                ${kv('Member', `${p.email} (${refCode(p.uid)})`)} ${kv('Paid by', p.paidBy)} ${kv('Bank transaction no.', p.reference)} ${kv('Submitted', fmtDate(p.createdAt))}
+                ${warn}
+                <p class="muted mt-1">Before approving: find <b>${esc(p.payCode || 'the payment')}</b> and <b>LKR ${Number(p.amount).toLocaleString()}</b> on your <b>bank statement</b> — don't rely on the slip photo alone.</p>
                 <div class="row mt-2">
                     <button class="btn btn-sm btn-maroon" data-pay-ok="${p.id}">Approve & activate Premium</button>
                     <button class="btn btn-sm btn-danger" data-pay-no="${p.id}">Reject…</button>
                 </div>
-            </div></div>`).join('');
+            </div></div>`;
+        }));
+        return rows.join('');
+    },
+    async money() {
+        const now = new Date();
+        const months = Array.from({ length: 12 }, (_, i) => new Date(now.getFullYear(), now.getMonth() - i, 1));
+        return `<p>Confirmed payments by month, for your records and your accountant.</p>
+            <div class="row"><div class="field"><select id="money-month">${months.map(d =>
+                `<option value="${d.getFullYear()}-${d.getMonth()}">${d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</option>`).join('')}</select></div>
+                <button class="btn btn-maroon" id="money-show">Show</button>
+                <button class="btn btn-ghost" id="money-csv" disabled>Download CSV</button></div>
+            <div id="money-out" class="mt-2"></div>`;
     },
     async verifications() {
         if (!data.verifications.length) return '<div class="empty"><p>No ID checks waiting.</p></div>';
@@ -401,6 +424,45 @@ async function autoScan() {
     }
 }
 
+// ───────── payment report ─────────
+let moneyRows = [], moneyLabel = '';
+async function showMoney() {
+    const out = $('#money-out');
+    out.innerHTML = '<div class="spinner"></div>';
+    try {
+        const [y, mo] = $('#money-month').value.split('-').map(Number);
+        moneyLabel = new Date(y, mo, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+        const snap = await getDocs(query(collection(db, 'payments'), where('status', '==', 'approved')));
+        moneyRows = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter(p => { const d = toDate(p.reviewedAt); return d && d.getFullYear() === y && d.getMonth() === mo; })
+            .sort((a, b) => toDate(a.reviewedAt) - toDate(b.reviewedAt));
+        const total = moneyRows.reduce((s, p) => s + Number(p.amount || 0), 0);
+        out.innerHTML = `<div class="stat-grid">
+                <div class="stat"><b>${moneyRows.length}</b><span>Payments confirmed in ${esc(moneyLabel)}</span></div>
+                <div class="stat"><b>LKR ${total.toLocaleString()}</b><span>Total received</span></div></div>` +
+            (moneyRows.length ? `<div class="mt-2" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.88rem">
+                <tr style="text-align:left;border-bottom:2px solid var(--gold)"><th>Confirmed</th><th>Receipt no.</th><th>Payment code</th><th>Member</th><th>Package</th><th style="text-align:right">LKR</th></tr>
+                ${moneyRows.map(p => `<tr style="border-bottom:1px solid var(--line)">
+                    <td>${fmtDate(p.reviewedAt)}</td><td>${esc(p.id.slice(0, 10).toUpperCase())}</td><td>${esc(p.payCode || '')}</td>
+                    <td>${esc(p.email)} (${refCode(p.uid)})</td><td>${p.months} months</td><td style="text-align:right">${Number(p.amount).toLocaleString()}</td></tr>`).join('')}
+                </table></div>` : '<p class="muted mt-2">No confirmed payments in this month.</p>');
+        $('#money-csv').disabled = !moneyRows.length;
+    } catch (err) { out.innerHTML = `<div class="alert alert-err">${esc(friendlyError(err))}</div>`; }
+}
+
+function downloadMoneyCsv() {
+    const cell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = [['Confirmed', 'Receipt no.', 'Payment code', 'Member email', 'Member ref', 'Paid by', 'Months', 'Amount LKR', 'Bank transaction no.']]
+        .concat(moneyRows.map(p => [toDate(p.reviewedAt)?.toISOString().slice(0, 10), p.id.slice(0, 10).toUpperCase(), p.payCode,
+            p.email, refCode(p.uid), p.paidBy, p.months, p.amount, p.reference]));
+    const blob = new Blob(['﻿' + lines.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `saubhagya-payments-${moneyLabel.replace(/\s+/g, '-').toLowerCase()}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 function ask(title, placeholder) {
     return new Promise(resolve => {
         const m = modal(`<h3>${esc(title)}</h3><div class="field"><textarea id="ask-text" placeholder="${esc(placeholder)}"></textarea></div>
@@ -416,6 +478,8 @@ $('#tab-body').addEventListener('click', async e => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.id === 'run-scan') { runScan(b); return; }
+    if (b.id === 'money-show') { showMoney(); return; }
+    if (b.id === 'money-csv') { downloadMoneyCsv(); return; }
     const d = b.dataset;
     try {
         if (d.approve) {
