@@ -229,6 +229,8 @@
         play.t2 = setTimeout(play, LOOP_SECONDS * 1000);
     }
     document.addEventListener('click', play);
+    // shown inside another page (the home page "Special" section): hide the recording hint
+    if (self !== top) document.body.classList.add('recording');
     play();
 </script>
 </body>
