@@ -4,7 +4,7 @@ import {
 import { FREE_LAUNCH_TARGET, FREE_INTEREST_LIMIT } from '../config.js';
 import { db, requireAuth, $, $$, esc, toast, label, ageFrom, heightLabel, refCode, toDate, fmtDate, friendlyError, modal } from '../app.js';
 import { contactInfoIn, PUBLIC_TEXT_FIELDS, isDisposableEmail, nameProblems, consistencyProblems } from '../checks.js';
-import { JOB_BODIES, occupationLabel, tierOf, isBusiness } from '../data.js';
+import { JOB_BODIES, occupationLabel, tierOf, isBusiness, occupationOf, countryName } from '../data.js';
 
 await requireAuth({ admin: true });
 
@@ -313,6 +313,12 @@ const tabs = {
             <button class="btn btn-maroon mt-1" id="run-scan">Run scan now</button>
             <div id="scan-out" class="mt-2">${lastScan ? scanHtml(lastScan) : ''}</div>`;
     },
+    async insights() {
+        return `<p>Members, balance and matching activity, from your own database. Loading reads every account, profile and
+            interest once (one database read each), so it only runs when you click.</p>
+            <button class="btn btn-maroon" id="ins-load">Load insights</button>
+            <div id="ins-out" class="mt-2"></div>`;
+    },
     async find() {
         return `<form id="find-form" class="row"><div class="field" style="flex:1"><input id="find-q" placeholder="Reference code (SB-XXXXX) or full user ID"></div><button class="btn btn-maroon">Find</button></form><div id="find-out" class="mt-2"></div>`;
     }
@@ -424,6 +430,107 @@ async function autoScan() {
     }
 }
 
+// ───────── insights ─────────
+/** Horizontal single-series bar list: [[label, count], …] — value labels in text ink, hover shows share. */
+function barList(rows, total) {
+    if (!rows.length) return '<p class="muted">No data yet.</p>';
+    const max = Math.max(...rows.map(r => r[1]), 1);
+    return `<div class="bars">${rows.map(([lbl, n]) => {
+        const pct = total ? Math.round((n / total) * 100) : 0;
+        const tip = esc(`${lbl}: ${n}${total ? ` (${pct}%)` : ''}`);
+        return `<span class="lbl" title="${tip}">${esc(lbl)}</span>
+            <div class="track row-hit" title="${tip}"><div class="fill" style="width:${(n / max) * 100}%"></div></div>
+            <span class="num">${n}</span>`;
+    }).join('')}</div>`;
+}
+const countBy = (items, fn) => {
+    const m = new Map();
+    for (const it of items) { const k = fn(it); if (k) m.set(k, (m.get(k) || 0) + 1); }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+};
+
+async function loadInsights(btn) {
+    const out = $('#ins-out');
+    btn.disabled = true;
+    out.innerHTML = '<div class="spinner"></div>';
+    try {
+        const [uSnap, pSnap, iSnap, paySnap] = await Promise.all([
+            getDocs(collection(db, 'users')), getDocs(collection(db, 'profiles')),
+            getDocs(collection(db, 'interests')), getDocs(query(collection(db, 'payments'), where('status', '==', 'approved')))
+        ]);
+        const users = uSnap.docs.map(d => d.data());
+        const profiles = pSnap.docs.map(d => d.data());
+        const live = profiles.filter(p => p.status === 'approved');
+        const interests = iSnap.docs.map(d => d.data());
+        const payments = paySnap.docs.map(d => d.data());
+        const now = new Date();
+        const pct = (n, d) => (d ? Math.round((n / d) * 100) + '%' : '—');
+
+        // headline tiles
+        const brides = live.filter(p => p.gender === 'female').length, grooms = live.filter(p => p.gender === 'male').length;
+        const accepted = interests.filter(i => i.status === 'accepted').length;
+        const declined = interests.filter(i => i.status === 'declined').length;
+        const premiumNow = users.filter(u => u.plan === 'premium' && toDate(u.premiumUntil) > now).length;
+        const monthRevenue = payments.filter(p => { const d = toDate(p.reviewedAt); return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); })
+            .reduce((s, p) => s + Number(p.amount || 0), 0);
+        const tile = (n, lbl, note = '') => `<div class="stat"><b>${n}</b><span>${esc(lbl)}${note ? `<br><span class="muted" style="font-size:.75rem">${esc(note)}</span>` : ''}</span></div>`;
+
+        // balance warning
+        const balance = brides + grooms ? brides / (brides + grooms) : 0.5;
+        const balanceNote = brides + grooms >= 10 && (balance < 0.35 || balance > 0.65)
+            ? `<div class="alert alert-info mt-2"><b>Imbalance:</b> ${brides < grooms ? 'brides' : 'grooms'} are only ${pct(Math.min(brides, grooms), brides + grooms)} of live profiles.
+                Consider promoting the site to ${brides < grooms ? 'brides and their families' : 'grooms and their families'} so members get replies.</div>` : '';
+
+        // weekly new accounts and new live profiles, last 8 weeks
+        const weekStart = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.getTime(); };
+        const weeks = Array.from({ length: 8 }, (_, i) => weekStart(new Date(now.getTime() - (7 - i) * 7 * 864e5)));
+        const perWeek = list => weeks.map(w => list.filter(t => t && weekStart(t) === w).length);
+        const regs = perWeek(users.map(u => toDate(u.createdAt)));
+        const weekChart = (counts, label) => {
+            const max = Math.max(...counts, 1);
+            return `<div class="weeks" role="img" aria-label="${esc(label)}">${counts.map((n, i) =>
+                `<div style="height:${(n / max) * 100}%" title="Week of ${new Date(weeks[i]).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}: ${n}"></div>`).join('')}</div>
+                <div class="weeks-lbl">${weeks.map(w => `<span>${new Date(w).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>`).join('')}</div>`;
+        };
+
+        // age bands of live profiles
+        const band = a => (a < 25 ? '18–24' : a < 30 ? '25–29' : a < 35 ? '30–34' : a < 40 ? '35–39' : a < 50 ? '40–49' : '50+');
+        const order = ['18–24', '25–29', '30–34', '35–39', '40–49', '50+'];
+        const ages = countBy(live, p => band(ageFrom(p.dob))).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+        const last30 = interests.filter(i => (toDate(i.createdAt)?.getTime() || 0) > now.getTime() - 30 * 864e5).length;
+
+        out.innerHTML = `
+            <div class="stat-grid">
+                ${tile(users.length, 'Registered accounts')}
+                ${tile(live.length, 'Live profiles', `${profiles.length - live.length} not live (in review, hidden, needs changes)`)}
+                ${tile(`${brides} / ${grooms}`, 'Brides / grooms (live)')}
+                ${tile(pct(accepted, accepted + declined), 'Interest acceptance rate', `${accepted} accepted, ${declined} declined`)}
+                ${tile(accepted, 'Matches so far', `${last30} interests sent in last 30 days`)}
+                ${tile(premiumNow, 'Paid Premium now', `LKR ${monthRevenue.toLocaleString()} confirmed this month`)}
+            </div>
+            ${balanceNote}
+            <div class="ins-grid">
+                <div><h3>New accounts per week</h3>${weekChart(regs, 'New accounts per week, last 8 weeks')}</div>
+                <div><h3>Profile quality (live)</h3>${barList([
+                    ['With photo', live.filter(p => p.photoCount > 0).length],
+                    ['Photos visible to members', live.filter(p => p.photoVisibility === 'members' && p.photoCount > 0).length],
+                    ['ID verified', live.filter(p => p.verified).length],
+                    ['Job verified', live.filter(p => p.jobVerified).length],
+                    ['Nakatha entered', live.filter(p => p.nakatha).length],
+                    ['Occupation chosen', live.filter(p => p.occupation).length]
+                ], live.length)}</div>
+                <div><h3>Age (live)</h3>${barList(ages, live.length)}</div>
+                <div><h3>District (home, top 10)</h3>${barList(countBy(live, p => label('district', p.district)).slice(0, 10), live.length)}</div>
+                <div><h3>Religion</h3>${barList(countBy(live, p => label('religion', p.religion)), live.length)}</div>
+                <div><h3>Occupation area</h3>${barList(countBy(live, p => (occupationOf(p) ? label('occGroup', occupationOf(p).group) : 'Not chosen yet')), live.length)}</div>
+                <div><h3>Where they live</h3>${barList(countBy(live, p => (p.residence === 'abroad' ? countryName(p) || 'Overseas' : 'Sri Lanka')), live.length)}</div>
+                <div><h3>Interests by status</h3>${barList([['Waiting for reply', interests.filter(i => i.status === 'pending').length], ['Accepted', accepted], ['Declined', declined]], interests.length)}</div>
+            </div>
+            <p class="muted mt-2" style="font-size:.8rem">Hover a bar for its share. Loaded ${new Date().toLocaleString('en-GB')}.</p>`;
+    } catch (err) { out.innerHTML = `<div class="alert alert-err">${esc(friendlyError(err))}</div>`; }
+    btn.disabled = false;
+}
+
 // ───────── payment report ─────────
 let moneyRows = [], moneyLabel = '';
 async function showMoney() {
@@ -479,6 +586,7 @@ $('#tab-body').addEventListener('click', async e => {
     if (!b) return;
     if (b.id === 'run-scan') { runScan(b); return; }
     if (b.id === 'money-show') { showMoney(); return; }
+    if (b.id === 'ins-load') { loadInsights(b); return; }
     if (b.id === 'money-csv') { downloadMoneyCsv(); return; }
     const d = b.dataset;
     try {
