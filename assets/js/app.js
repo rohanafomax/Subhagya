@@ -226,6 +226,12 @@ function renderChrome() {
                 <li data-auth="out" class="mobile-only"><a href="login.html?mode=register" data-i18n="nav_register">Register Free</a></li>
             </ul>
             <div class="nav-actions">
+                <div class="bell" data-auth="in" hidden>
+                    <button class="bell-btn" id="bell-btn" type="button" aria-label="${esc(t('notifications', 'Notifications'))}" aria-expanded="false" aria-controls="bell-panel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                    </button>
+                    <div class="bell-panel" id="bell-panel" hidden role="dialog" aria-label="${esc(t('notifications', 'Notifications'))}"></div>
+                </div>
                 <button class="lang-btn" id="lang-btn" type="button">${getLang() === 'si' ? 'English' : 'සිංහල'}</button>
                 <a href="login.html?mode=register" class="btn btn-gold nav-cta" data-auth="out" data-i18n="nav_register">Register Free</a>
                 <a href="dashboard.html" class="btn btn-gold nav-cta" data-auth="in" hidden data-i18n="nav_dashboard">My Account</a>
@@ -246,6 +252,7 @@ function renderChrome() {
             btn.setAttribute('aria-expanded', open);
         });
         links.addEventListener('click', e => { if (e.target.closest('a')) links.classList.remove('open'); });
+        initBell();
         document.getElementById('lang-btn').addEventListener('click', () => setLang(getLang() === 'si' ? 'en' : 'si'));
         document.addEventListener('click', e => {
             if (e.target.closest('[data-logout]')) { e.preventDefault(); logout(); }
@@ -294,28 +301,136 @@ function renderNavAuth() {
     $$('[data-auth="admin"]').forEach(el => (el.hidden = !admin));
 }
 
-// ───────── alert badges ─────────
-/** When the member last opened the Matches tab (stored on this device). */
-export function markMatchesSeen() {
-    try { localStorage.setItem('matchesSeen_' + _me.user.uid, String(Date.now())); } catch {}
-    updateBadges().catch(() => {});
+// ───────── notification bell ─────────
+// Built from the member's own data each time they open the site — no server needed.
+// "Unread" = anything newer than the last time they opened the bell (stored on this device).
+let _events = [];
+const bellSeenKey = () => 'bellSeen_' + _me.user.uid;
+const bellSeen = () => { try { return Number(localStorage.getItem(bellSeenKey())) || 0; } catch { return 0; } };
+
+async function safeData(ref) {
+    try { const s = await getDoc(ref); return s.exists() ? s.data() : null; } catch { return null; }
 }
 
-/** Counts new interests/matches (and admin to-dos) and shows them on the menu. */
+/** Recent things that happened to this member, newest first. */
+async function loadEvents() {
+    const uid = _me.user.uid;
+    const interests = collection(db, 'interests');
+    const [inSnap, outSnap, profile, verif, jobCheck, jobEmail, paySnap] = await Promise.all([
+        getDocs(query(interests, where('to', '==', uid))).catch(() => ({ docs: [] })),
+        getDocs(query(interests, where('from', '==', uid), where('status', '==', 'accepted'))).catch(() => ({ docs: [] })),
+        safeData(doc(db, 'profiles', uid)),
+        safeData(doc(db, 'verifications', uid)),
+        safeData(doc(db, 'jobChecks', uid)),
+        safeData(doc(db, 'jobEmails', uid)),
+        getDocs(query(collection(db, 'payments'), where('uid', '==', uid))).catch(() => ({ docs: [] }))
+    ]);
+    const ev = [];
+    const add = (at, icon, text, href, tone = '') => { const d = toDate(at); if (d) ev.push({ at: d.getTime(), icon, text, href, tone }); };
+
+    // interests — look up first names of the people involved (approved profiles only)
+    const received = inSnap.docs.map(d => d.data()).filter(i => i.status === 'pending');
+    const accepted = outSnap.docs.map(d => d.data());
+    const ids = [...new Set([...received.map(i => i.from), ...accepted.map(i => i.to)])].slice(0, 20);
+    const names = Object.fromEntries(await Promise.all(ids.map(async id => [id, (await safeData(doc(db, 'profiles', id)))?.firstName])));
+    const who = id => names[id] || t('someone', 'Someone');
+    for (const i of received) add(i.createdAt, '♥', `${who(i.from)} ${t('ev_interest', 'sent you an interest')}`, 'dashboard.html');
+    for (const i of accepted) add(i.respondedAt, '🎉', `${who(i.to)} ${t('ev_accepted', 'accepted your interest — you are matched!')}`, `profile.html?id=${i.to}`, 'ok');
+
+    // profile review
+    if (profile?.status === 'approved') add(profile.reviewedAt, '✓', t('ev_live', 'Your profile was approved and is now live'), `profile.html?id=${uid}`, 'ok');
+    if (profile?.status === 'rejected') add(profile.reviewedAt, '!', `${t('ev_changes', 'Your profile needs changes')}: ${profile.rejectReason || ''}`, 'my-profile.html', 'warn');
+
+    // verification
+    if (verif?.status === 'approved') add(verif.reviewedAt, '✓', t('ev_id_ok', 'Your ID was verified'), 'dashboard.html', 'ok');
+    if (verif?.status === 'rejected') add(verif.reviewedAt, '!', `${t('ev_id_no', 'ID verification was not successful')}: ${verif.note || ''}`, 'dashboard.html', 'warn');
+    if (jobCheck?.status === 'approved') add(jobCheck.reviewedAt, '✓', t('ev_job_ok', 'Your job was verified'), 'dashboard.html', 'ok');
+    if (jobCheck?.status === 'rejected') add(jobCheck.reviewedAt, '!', `${t('ev_job_no', 'Job verification was not successful')}: ${jobCheck.note || ''}`, 'dashboard.html', 'warn');
+    if (jobEmail) add(jobEmail.createdAt, '✓', `${t('ev_job_email', 'Job verified with your work email')} (${jobEmail.domain})`, 'dashboard.html', 'ok');
+
+    // payments and Premium
+    for (const p of paySnap.docs.map(d => d.data())) {
+        if (p.status === 'approved') add(p.reviewedAt, '★', `${t('ev_paid', 'Payment confirmed — Premium active until')} ${fmtDate(p.activeUntil)}`, 'pricing.html', 'ok');
+        if (p.status === 'rejected') add(p.reviewedAt, '!', `${t('ev_pay_no', 'Your payment could not be confirmed')}: ${p.note || ''}`, 'pricing.html', 'warn');
+    }
+    const until = toDate(_me.account.premiumUntil);
+    if (until) {
+        const days = Math.ceil((until - Date.now()) / 864e5);
+        if (days >= 0 && days <= 7) add(new Date(until - 7 * 864e5), '⏳', `${t('prem_ending', 'Your Premium membership ends on')} ${fmtDate(until)}`, 'pricing.html', 'warn');
+    }
+
+    return ev.filter(e => e.at <= Date.now() + 6e4).sort((a, b) => b.at - a.at).slice(0, 30);
+}
+
+function timeAgo(ms) {
+    const s = Math.round((Date.now() - ms) / 1000);
+    if (s < 60) return t('just_now', 'just now');
+    const m = Math.round(s / 60); if (m < 60) return `${m} ${t('min_ago', 'min ago')}`;
+    const h = Math.round(m / 60); if (h < 24) return `${h} ${t('hours_ago', 'h ago')}`;
+    const d = Math.round(h / 24); if (d < 30) return `${d} ${t('days_ago', 'days ago')}`;
+    return fmtDate(new Date(ms));
+}
+
+function renderBellPanel(seenBefore) {
+    const panel = document.getElementById('bell-panel');
+    if (!panel) return;
+    panel.innerHTML = `<div class="bell-head"><strong>${esc(t('notifications', 'Notifications'))}</strong></div>` + (_events.length
+        ? `<ul class="bell-list">${_events.map(e => `<li class="${e.at > seenBefore ? 'unread' : ''} ${e.tone}">
+                <a href="${esc(e.href)}"><span class="bell-ic" aria-hidden="true">${esc(e.icon)}</span>
+                <span class="bell-txt">${esc(e.text)}<small>${esc(timeAgo(e.at))}</small></span></a></li>`).join('')}</ul>`
+        : `<p class="bell-empty">${esc(t('no_notifications', 'No notifications yet. Complete your profile and send interests to get started.'))}</p>`);
+}
+
+function initBell() {
+    const btn = document.getElementById('bell-btn'), panel = document.getElementById('bell-panel');
+    if (!btn) return;
+    const close = () => { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!panel.hidden) { close(); return; }
+        const seenBefore = bellSeen();
+        renderBellPanel(seenBefore);
+        panel.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        try { localStorage.setItem(bellSeenKey(), String(Date.now())); } catch {}
+        setBellCount(0);
+        updateTotals();
+    });
+    document.addEventListener('click', e => { if (!panel.hidden && !e.target.closest('.bell')) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { close(); btn.focus(); } });
+}
+
+let _bellUnread = 0, _adminCount = 0;
+function setBellCount(n) {
+    _bellUnread = n;
+    const btn = document.getElementById('bell-btn');
+    if (!btn) return;
+    btn.querySelector('.nav-count')?.remove();
+    if (n > 0) btn.insertAdjacentHTML('beforeend', `<span class="nav-count">${n > 99 ? '99+' : n}</span>`);
+    btn.setAttribute('aria-label', `${t('notifications', 'Notifications')}${n ? ` (${n} ${t('unread', 'unread')})` : ''}`);
+}
+function updateTotals() {
+    const total = _bellUnread + _adminCount;
+    document.getElementById('menu-btn')?.classList.toggle('has-alert', _adminCount > 0);
+    document.title = document.title.replace(/^\(\d+\+?\) /, '');
+    if (total) document.title = `(${total > 99 ? '99+' : total}) ${document.title}`;
+    try { total ? navigator.setAppBadge?.(total) : navigator.clearAppBadge?.(); } catch {}
+}
+
+// ───────── alert badges ─────────
+/** Kept for the Matches tab; the bell now shows new matches. */
+export function markMatchesSeen() {
+    try { localStorage.setItem('matchesSeen_' + _me.user.uid, String(Date.now())); } catch {}
+}
+
+/** Refreshes the bell and the admin to-do count. */
 export async function updateBadges() {
     if (!_me) return;
-    const uid = _me.user.uid;
     const count = async q => (await getCountFromServer(q)).data().count;
-    const interests = collection(db, 'interests');
 
-    let seen = 0;
-    try { seen = Number(localStorage.getItem('matchesSeen_' + uid)) || 0; } catch {}
-    const [newInterests, accepted] = await Promise.all([
-        count(query(interests, where('to', '==', uid), where('status', '==', 'pending'))),
-        getDocs(query(interests, where('from', '==', uid), where('status', '==', 'accepted')))
-    ]);
-    const newMatches = accepted.docs.filter(d => (toDate(d.data().respondedAt)?.getTime() || 0) > seen).length;
-    const mine = newInterests + newMatches;
+    _events = await loadEvents().catch(() => []);
+    const seen = bellSeen();
+    setBellCount(_events.filter(e => e.at > seen).length);
 
     let admin = 0;
     if (_me.account.role === 'admin') {
@@ -330,14 +445,9 @@ export async function updateBadges() {
         a.querySelector('.nav-count')?.remove();
         if (n > 0) a.insertAdjacentHTML('beforeend', `<span class="nav-count" title="${esc(title)}">${n > 99 ? '99+' : n}</span>`);
     });
-    setCount('a[href="dashboard.html"]', mine, t('badge_mine', 'New interests and matches'));
     setCount('a[href="admin.html"]', admin, 'Items waiting for review');
-
-    const total = mine + admin;
-    document.getElementById('menu-btn')?.classList.toggle('has-alert', total > 0);
-    document.title = document.title.replace(/^\(\d+\+?\) /, '');
-    if (total) document.title = `(${total > 99 ? '99+' : total}) ${document.title}`;
-    try { total ? navigator.setAppBadge?.(total) : navigator.clearAppBadge?.(); } catch {}
+    _adminCount = admin;
+    updateTotals();
 }
 
 // Reveal-on-scroll for any .reveal element
